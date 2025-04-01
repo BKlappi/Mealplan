@@ -1,0 +1,103 @@
+/* Use variables for background */
+.login-page body {
+    background-color: var(--bg-primary); /* Use primary page background */
+}
+
+.login-page header {
+   justify-content: center;
+   border-bottom: none;
+   background-color: transparent;
+   padding-top: 40px;
+   padding-bottom: 10px;
+}
+
+.login-page main {
+   max-width: 450px;
+   background-color: var(--bg-secondary); /* Use secondary background for card */
+   padding: 40px;
+   border-radius: 8px;
+   margin: 50px auto;
+   box-shadow: 0 4px 12px var(--shadow-color-darker); /* Use variable */
+   border: 1px solid var(--border-primary); /* Use variable */
+   transition: background-color 0.3s ease, border-color 0.3s ease; /* Add transition */
+}
+
+.login-page h1 {
+   text-align: center;
+   margin-bottom: 35px;
+   font-size: 1.8em;
+   color: var(--text-primary); /* Use variable */
+   font-weight: 500;
+}
+
+.login-form {
+   display: flex;
+   flex-direction: column;
+   gap: 25px; /* Increase gap between form elements */
+}
+
+.form-group {
+   display: flex;
+   flex-direction: column;
+   gap: 10px; /* Increase gap between label and input */
+}
+
+.form-group label {
+   font-weight: 500;
+   font-size: 0.9em;
+   color: var(--text-secondary); /* Use variable */
+}
+
+/* --- Consistent Input Styling --- */
+/* Consider moving this block to style.css for true consistency */
+.form-group input[type="email"],
+.form-group input[type="password"],
+.form-group input[type="text"],
+.form-group input[type="number"] {
+   padding: 12px 15px;
+   border-radius: 5px;
+   border: 1px solid var(--input-border); /* Use variable */
+   background-color: var(--input-bg); /* Use variable */
+   color: var(--text-primary); /* Use variable */
+   font-size: 1em;
+   transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.3s ease, color 0.3s ease; /* Add theme transitions */
+}
+
+.form-group input:focus {
+   outline: none;
+   border-color: var(--input-focus-border); /* Use variable */
+   box-shadow: 0 0 0 3px var(--input-focus-shadow); /* Use variable */
+}
+
+/* Remove specific submit button styles - handled by style.css */
+/*
+.submit-button { ... }
+.submit-button:hover { ... }
+.submit-button:active { ... }
+*/
+
+/* Ensure submit button takes full width */
+.login-form .submit-button {
+    width: 100%;
+    margin-top: 15px; /* Add some space above button */
+    padding: 12px 15px; /* Slightly larger padding for main action */
+    font-size: 1.05em;
+}
+
+
+.register-link {
+   text-align: center;
+   margin-top: 25px;
+   font-size: 0.9em;
+   color: var(--text-secondary); /* Use variable */
+}
+
+.register-link a {
+   color: var(--accent-primary); /* Use variable */
+   text-decoration: none;
+   font-weight: 500;
+}
+
+.register-link a:hover {
+   /* text-decoration: underline; */ /* Remove underline - handled by base 'a:hover' */
+}

@@ -1,0 +1,116 @@
+/* register.css - Styles specific to the registration page */
+
+/* Use variables defined in style.css */
+
+.register-page body {
+   /* Base body styles are inherited from style.css */
+   /* This class allows page-specific overrides if needed, but body background is likely fine from style.css */
+    background-color: var(--bg-primary); /* Ensure this is desired - it uses the main background */
+}
+
+/* Styles for the header specifically on the register page */
+.register-page header {
+  justify-content: center; /* Center the site title */
+  border-bottom: none; /* Remove the border */
+  background-color: transparent; /* Make header background transparent */
+  box-shadow: none; /* Remove shadow if base header has one */
+  padding-top: 40px; /* Add some top padding */
+  padding-bottom: 10px; /* Reduce bottom padding */
+}
+
+/* Styles for the main content area on the register page (the card) */
+.register-page main {
+  max-width: 450px; /* Limit the width of the form container */
+  background-color: var(--bg-secondary); /* Card background color */
+  padding: 40px; /* Inner spacing */
+  border-radius: 8px; /* Rounded corners */
+  margin: 50px auto; /* Center the card vertically (approx) and horizontally */
+  box-shadow: 0 4px 12px var(--shadow-color-darker); /* Card shadow */
+  border: 1px solid var(--border-primary); /* Card border */
+  transition: background-color 0.3s ease, border-color 0.3s ease; /* Smooth theme transitions */
+}
+
+/* Styles for the main heading on the register page */
+.register-page h1 {
+  text-align: center; /* Center the title */
+  margin-bottom: 35px; /* Space below the title */
+  font-size: 1.8em; /* Title size */
+  color: var(--text-primary); /* Title color */
+  font-weight: 500; /* Title font weight */
+}
+
+/* Styles for the form element itself */
+.registration-form {
+  display: flex;
+  flex-direction: column; /* Stack form elements vertically */
+  gap: 25px; /* Space between form groups */
+}
+
+/* Styles for each form group (label + input) */
+/* Note: Base .form-group styles might exist in style.css, these would apply only on register page */
+.register-page .form-group { /* Added .register-page for specificity if needed, though direct class is often fine */
+  display: flex;
+  flex-direction: column; /* Stack label above input */
+  gap: 10px; /* Space between label and input */
+}
+
+/* Styles for labels within form groups */
+.register-page .form-group label {
+  font-weight: 500;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+/* --- Input Styling --- */
+/* These rules apply to inputs within any .form-group on the page */
+/* These could potentially be moved to style.css if identical for login */
+.register-page .form-group input[type="text"],
+.register-page .form-group input[type="email"],
+.register-page .form-group input[type="password"] {
+   padding: 12px 15px;
+   border-radius: 5px;
+   border: 1px solid var(--input-border);
+   background-color: var(--input-bg);
+   color: var(--text-primary);
+   font-size: 1em;
+   transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+}
+
+.register-page .form-group input:focus {
+   outline: none;
+   border-color: var(--input-focus-border);
+   box-shadow: 0 0 0 3px var(--input-focus-shadow);
+}
+
+
+/* --- Button Styling --- */
+/* This targets the submit button specifically within the .registration-form */
+.registration-form .submit-button {
+   /* Base button styles (.submit-button) are inherited from style.css */
+   width: 100%; /* Make button full width */
+   margin-top: 15px; /* Space above the button */
+   padding: 12px 15px; /* Button padding */
+   font-size: 1.05em; /* Button text size */
+   /* Inherits colors, hover effects etc. from .submit-button rule in style.css */
+}
+
+/* --- Bottom Link Styling --- */
+/* Targets the paragraph containing the login link */
+.register-page .login-link { /* Added .register-page for specificity if needed */
+  text-align: center;
+  margin-top: 25px; /* Space above the link */
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+/* Styles the actual anchor link */
+.register-page .login-link a {
+  color: var(--accent-primary);
+  text-decoration: none; /* Link default styles likely remove this anyway */
+  font-weight: 500;
+}
+
+.register-page .login-link a:hover {
+  /* Hover effects inherited from base 'a:hover' in style.css (like color change) */
+  /* text-decoration: underline; */ /* Keep underline off or managed by base style */
+}

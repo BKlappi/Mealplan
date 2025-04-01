@@ -1,0 +1,157 @@
+/* style.css - Base styles for Protein Protocol */
+
+:root {
+    /* Dark Mode (Default) */
+    --bg-primary: #121212;
+    --bg-secondary: #1f1f1f;
+    --bg-tertiary: #2a2a2a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --text-inverted: #ffffff;
+    --accent-primary: #00acc1; /* Cyan */
+    --accent-primary-hover: #1ad0e7;
+    --accent-primary-darker: #008a9c;
+    --accent-primary-bg-hover-light: rgba(0, 172, 193, 0.1);
+    --border-primary: #333;
+    --border-secondary: #444;
+    --shadow-color-light: rgba(0, 0, 0, 0.1);
+    --shadow-color-medium: rgba(0, 0, 0, 0.15);
+    --shadow-color-dark: rgba(0, 0, 0, 0.2);
+    --shadow-color-darker: rgba(0, 0, 0, 0.25);
+    --shadow-color-light-inset: rgba(0, 0, 0, 0.1);
+    --danger-color: #c0392b; /* Dark Red */
+    --danger-border: #a93226;
+    --danger-shadow: rgba(192, 57, 43, 0.3);
+    --danger-color-rgb: 192, 57, 43; /* <<< ADDED RGB */
+    --input-bg: #333;
+    --input-border: #444;
+    --input-focus-border: var(--accent-primary);
+    --input-focus-shadow: rgba(0, 172, 193, 0.4);
+    --list-item-bg: rgba(0, 172, 193, 0.07);
+    --list-item-hover-bg: rgba(0, 172, 193, 0.12);
+  }
+  
+  .light-mode {
+    /* Light Mode Overrides */
+    --bg-primary: #f8f9fa;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f3f5;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --text-inverted: #ffffff;
+    --accent-primary: #007bff; /* Blue */
+    --accent-primary-hover: #0056b3;
+    --accent-primary-darker: #0056b3;
+    --accent-primary-bg-hover-light: rgba(0, 123, 255, 0.1);
+    --border-primary: #dee2e6;
+    --border-secondary: #ced4da;
+    --shadow-color-light: rgba(0, 0, 0, 0.05);
+    --shadow-color-medium: rgba(0, 0, 0, 0.1);
+    --shadow-color-dark: rgba(0, 0, 0, 0.1);
+    --shadow-color-darker: rgba(0, 0, 0, 0.15);
+    --shadow-color-light-inset: rgba(0, 0, 0, 0.05);
+    --danger-color: #dc3545; /* Light Red */
+    --danger-border: #c82333;
+    --danger-shadow: rgba(220, 53, 69, 0.3);
+    --danger-color-rgb: 220, 53, 69; /* <<< ADDED RGB */
+    --input-bg: #ffffff;
+    --input-border: #ced4da;
+    --input-focus-border: var(--accent-primary);
+    --input-focus-shadow: rgba(0, 123, 255, 0.25);
+    --list-item-bg: rgba(0, 123, 255, 0.05);
+    --list-item-hover-bg: rgba(0, 123, 255, 0.1);
+  }
+  
+  /* --- General Reset & Body --- */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+      line-height: 1.6;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 16px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  /* --- Links --- */
+  a { color: var(--accent-primary); text-decoration: none; transition: color 0.2s ease-in-out; }
+  a:hover { color: var(--accent-primary-hover); /* text-decoration: underline; */ }
+  
+  /* --- Header --- */
+  header {
+      background-color: var(--bg-secondary);
+      padding: 15px 5%;
+      display: flex;
+      box-shadow: 0 2px 5px var(--shadow-color-dark);
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-primary);
+      width: 100%;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+  .site-title { color: var(--text-primary); font-size: 1.5em; font-weight: 600; text-decoration: none; }
+  a.site-title:hover { text-decoration: none; }
+  .header-buttons { display: flex; align-items: center; gap: 15px; }
+  
+  /* --- Base Button Styling --- */
+  .header-button, .submit-button, .edit-button, .save-button, .cancel-button, .add-button, .remove-button {
+      display: inline-block; padding: 9px 18px; border: 1px solid transparent; border-radius: 5px; font-weight: 500; font-size: 0.95em; transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out, transform 0.1s ease, box-shadow 0.2s ease; text-align: center; cursor: pointer; line-height: 1.4; box-shadow: 0 1px 2px var(--shadow-color-light);
+  }
+  .header-button:hover, .submit-button:hover, .edit-button:hover, .save-button:hover, .cancel-button:hover, .add-button:hover, .remove-button:hover { box-shadow: 0 2px 4px var(--shadow-color-medium); }
+  .header-button:active, .submit-button:active, .edit-button:active, .save-button:active, .cancel-button:active, .add-button:active, .remove-button:active { transform: scale(0.98); box-shadow: inset 0 1px 2px var(--shadow-color-light-inset); }
+  
+  /* Specific Header Buttons */
+  .login-button { background-color: transparent; border-color: var(--accent-primary); color: var(--accent-primary); }
+  .login-button:hover { background-color: var(--accent-primary-bg-hover-light); color: var(--accent-primary-hover); border-color: var(--accent-primary-hover); }
+  .register-button { background-color: var(--accent-primary); border-color: var(--accent-primary); color: var(--text-inverted); }
+  .register-button:hover { background-color: var(--accent-primary-darker); border-color: var(--accent-primary-darker); }
+  
+  /* Theme Toggle Button */
+  #theme-toggle-button { background: none; border: none; color: var(--text-secondary); font-size: 1.5em; cursor: pointer; padding: 5px; line-height: 1; transition: color 0.2s ease; }
+  #theme-toggle-button:hover { color: var(--accent-primary); }
+  
+  /* --- Main Content Area --- */
+  main { max-width: 1200px; width: 100%; margin: 40px auto; padding: 0 20px; flex-grow: 1; }
+  
+  /* Index Page Specific */
+  .hero-placeholder { min-height: 60vh; background-image: url('images/image-burger.png'); background-size: cover; background-position: center; background-repeat: no-repeat; margin-bottom: 60px; border-radius: 8px; }
+  .intro-text { text-align: center; padding: 0 20px; }
+  .intro-text p { color: var(--text-primary); font-size: 1.25em; font-weight: 400; margin-bottom: 20px; max-width: 750px; margin-left: auto; margin-right: auto; line-height: 1.7; }
+  
+  /* --- Footer --- */
+  footer { background-color: var(--bg-secondary); color: var(--text-secondary); padding: 25px 5%; margin-top: 60px; border-top: 1px solid var(--border-primary); width: 100%; flex-shrink: 0; transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+  .footer-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+  .footer-content p { margin: 0; font-size: 0.9em; }
+  .footer-links a { color: var(--text-secondary); text-decoration: none; margin-left: 20px; font-size: 0.9em; }
+  .footer-links a:first-child { margin-left: 0; }
+  .footer-links a:hover { color: var(--accent-primary); }
+  
+  /* ===== Styles for Static Content Pages (Privacy, Terms, Contact) ===== */
+  .static-content-page main { max-width: 800px; background-color: var(--bg-secondary); padding: 35px 45px; border-radius: 8px; margin: 40px auto; box-shadow: 0 4px 12px var(--shadow-color-darker); border: 1px solid var(--border-primary); transition: background-color 0.3s ease, border-color 0.3s ease; }
+  .static-content-page h1 { color: var(--accent-primary); margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border-secondary); font-size: 1.8em; font-weight: 500; text-align: center; }
+  .static-content-page p, .static-content-page ul { color: var(--text-primary); line-height: 1.7; margin-bottom: 1.2em; font-size: 1.05em; }
+  .static-content-page ul { padding-left: 30px; list-style: disc; }
+  .static-content-page li { margin-bottom: 0.5em; }
+  .static-content-page a.back-link { display: inline-block; margin-top: 25px; font-weight: 500; color: var(--accent-primary); }
+  .static-content-page a.back-link:hover { color: var(--accent-primary-hover); }
+  
+  /* ===== Error Message Styling ===== */
+  .error-message {
+      padding: 12px 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      font-size: 0.95em;
+      border: 1px solid var(--danger-border);
+      background-color: rgba(var(--danger-color-rgb), 0.1); /* Uses RGB var */
+      color: var(--danger-color);
+      text-align: center;
+      display: none; /* Hidden by default */
+      transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  }
+  .error-message.visible { /* Class added by JS to show */
+      display: block;
+  }

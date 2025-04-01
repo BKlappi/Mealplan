@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Protein Protocol</title>
+    <link rel="stylesheet" href="style.css">   <!-- Base Styles -->
+    <link rel="stylesheet" href="register.css"> <!-- Page Specific Styles -->
+</head>
+<body class="register-page">
+
+    <header>
+        <a href="index.html" class="site-title">Protein Protocol</a>
+        <div style="position: absolute; right: 5%; top: 15px;">
+             <button id="theme-toggle-button" title="Toggle theme">☀️</button>
+        </div>
+    </header>
+
+    <main>
+        <h1>Create Your Account</h1>
+        <div id="register-error" class="error-message"></div> <!-- Placeholder error area -->
+
+        <form action="#" method="POST" class="registration-form" id="registration-form">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+             <div class="form-group">
+                <label for="password_confirm">Confirm Password:</label>
+                <input type="password" id="password_confirm" name="password_confirm" required>
+            </div>
+            <button type="submit" class="submit-button">Register</button>
+        </form>
+
+        <p class="login-link">Already have an account? <a href="login.html">Login here</a></p>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <p>© 2024 Protein Protocol. All rights reserved.</p>
+            <nav class="footer-links">
+                <a href="privacy.html">Privacy Policy</a>
+                <a href="terms.html">Terms of Service</a>
+                <a href="contact.html">Contact Us</a>
+            </nav>
+        </div>
+    </footer>
+
+    <script src="register.js"></script> <!-- Currently uses alert() -->
+    <script src="theme.js" defer></script>
+</body>
+</html>

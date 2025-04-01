@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Protein Protocol</title>
+    <link rel="stylesheet" href="style.css">       <!-- Base Styles -->
+    <link rel="stylesheet" href="dashboard.css">   <!-- Page Specific Styles -->
+</head>
+<body class="dashboard-page">
+
+    <header>
+        <a href="index.html" class="site-title">Protein Protocol</a>
+        <div class="header-buttons">
+            <button id="theme-toggle-button" title="Toggle theme">☀️</button>
+            <span class="user-greeting">Welcome, User!</span> <!-- Updated by JS -->
+            <a href="index.html" class="header-button logout-button" id="logout-button">Logout</a>
+        </div>
+    </header>
+
+    <main>
+        <!-- Container for Main Dashboard View -->
+        <div id="dashboard-main-content"> <!-- THIS DIV WRAPS THE ORIGINAL DASHBOARD -->
+            <h1>Your Dashboard</h1>
+            <div class="dashboard-grid">
+
+                <!-- == Goals Section START == -->
+                <section class="dashboard-section goals">
+                    <h2>Your Goals <button class="edit-button" id="edit-goals-btn">Edit</button></h2>
+                    <div id="goals-display">
+                        <p>Calories: <span id="user-calories">...</span> kcal</p>
+                        <p>Protein: <span id="user-protein">...</span> g</p>
+                    </div>
+                    <form id="goals-form" class="hidden">
+                        <div class="form-group"> <label for="edit-calories">Calories (kcal):</label> <input type="number" id="edit-calories" name="calories" required min="1"> </div>
+                        <div class="form-group"> <label for="edit-protein">Protein (g):</label> <input type="number" id="edit-protein" name="protein" required min="1"> </div>
+                        <button type="submit" class="save-button">Save Goals</button> <button type="button" class="cancel-button" id="cancel-goals-btn">Cancel</button>
+                    </form>
+                    <p class="feedback hidden" id="goals-feedback"></p>
+                </section>
+                <!-- == Goals Section END == -->
+
+                <!-- == Inventory Section START == -->
+                <section class="dashboard-section inventory">
+                    <h2>Your Inventory</h2>
+                    <ul id="inventory-list"> <!-- Loaded by JS --> </ul>
+                    <form id="add-inventory-form">
+                        <div class="form-group"> <label for="item-name">Item Name:</label> <input type="text" id="item-name" name="itemName" required placeholder="e.g., Chicken Breast"> </div>
+                        <div class="form-group"> <label for="item-quantity">Quantity:</label> <input type="text" id="item-quantity" name="itemQuantity" placeholder="e.g., 500g (optional)"> </div>
+                        <button type="submit" class="add-button" id="add-update-inventory-btn">Add Item</button>
+                    </form>
+                    <p class="feedback hidden" id="inventory-feedback"></p>
+                </section>
+                <!-- == Inventory Section END == -->
+
+                <!-- == Meal Plan Section START == -->
+                <section class="dashboard-section meal-plan">
+                    <h2>Generate a Meal Idea</h2>
+                    <!-- Meal Type Selection -->
+                    <div class="form-group" style="margin-bottom: 15px;"> <!-- Added form-group for consistency -->
+                        <label for="meal-type-select">Select Meal Type:</label>
+                        <select id="meal-type-select" name="mealType" style="padding: 10px; border-radius: 5px; border: 1px solid var(--input-border); background-color: var(--input-bg); color: var(--text-primary); font-size: 1em;">
+                            <option value="Breakfast">Breakfast</option>
+                            <option value="Lunch">Lunch</option>
+                            <option value="Dinner">Dinner</option>
+                            <option value="Snack">Snack</option>
+                        </select>
+                    </div>
+                    <!-- Meal Plan Display Area -->
+                    <div id="meal-plan-content" style="margin-bottom: 20px;"> <!-- Added margin-bottom -->
+                        <p>Select a meal type and click the button below to generate an idea based on your inventory.</p>
+                    </div>
+                    <!-- Generate Button -->
+                    <button id="generate-plan-btn" class="submit-button" style="width: 100%;">Generate Meal Idea</button>
+                </section>
+                <!-- == Meal Plan Section END == -->
+
+            </div> <!-- End dashboard-grid -->
+        </div> <!-- End dashboard-main-content -->
+
+        <!-- Hidden content views removed -->
+
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <p>© 2024 Protein Protocol. All rights reserved.</p>
+            <nav class="footer-links">
+                 <!-- Links point to separate pages -->
+                <a href="privacy.html">Privacy Policy</a>
+                <a href="terms.html">Terms of Service</a>
+                <a href="contact.html">Contact Us</a>
+            </nav>
+        </div>
+    </footer>
+
+    <!-- Load JS -->
+    <script src="dashboard.js"></script> <!-- Ensure this is the latest correct JS file -->
+    <script src="theme.js" defer></script>
+</body>
+</html>

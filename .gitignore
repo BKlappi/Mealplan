@@ -1,0 +1,12 @@
+# Ignore Node dependencies
+node_modules/
+
+# Ignore the SQLite database file
+backend/database.db
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore log files
+*.log
