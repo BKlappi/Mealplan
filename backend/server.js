@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose(); // Import sqlite3
+const { Pool } = require('pg'); // Import pg Pool
 const bcrypt = require('bcrypt'); // Import bcrypt for password hashing
 // Import the OpenAI library
 const { OpenAI } = require('openai');
@@ -18,49 +18,64 @@ if (!jwtSecret) {
   process.exit(1); // Exit if secret is missing - critical for security
 }
 
-// --- Database Setup ---
-const dbPath = './database.db'; // Path to the SQLite database file
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error("Error opening database:", err.message);
-  } else {
-    console.log("Connected to the SQLite database.");
-    // Create users table if it doesn't exist
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL
-    )`, (err) => {
-      if (err) {
-        console.error("Error creating users table:", err.message);
-      } else {
-        console.log("Users table ready.");
-        // Create user_goals table (using user_id as foreign key)
-        db.run(`CREATE TABLE IF NOT EXISTS user_goals (
-          user_id INTEGER PRIMARY KEY,
-          calories INTEGER,
-          protein INTEGER,
-          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        )`, (err) => {
-          if (err) console.error("Error creating user_goals table:", err.message);
-          else console.log("User goals table ready.");
-        });
-        // Create user_inventory table (using user_id as foreign key)
-        db.run(`CREATE TABLE IF NOT EXISTS user_inventory (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER NOT NULL,
-          item_name TEXT NOT NULL,
-          item_quantity TEXT,
-          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        )`, (err) => {
-           if (err) console.error("Error creating user_inventory table:", err.message);
-           else console.log("User inventory table ready.");
-        });
-      }
-    });
-  }
+// --- Database Setup (PostgreSQL) ---
+// Render provides the DATABASE_URL environment variable
+// For local development, you might need to set this in your .env file
+// e.g., DATABASE_URL=postgresql://user:password@host:port/database
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // Use SSL in production on Render, but maybe not locally
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
+
+// Function to initialize database schema
+const initializeDb = async () => {
+  const client = await pool.connect();
+  try {
+    // Create users table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL
+      );
+    `);
+    console.log("Users table ready.");
+
+    // Create user_goals table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_goals (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        calories INTEGER,
+        protein INTEGER
+      );
+    `);
+    console.log("User goals table ready.");
+
+    // Create user_inventory table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_inventory (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        item_name VARCHAR(255) NOT NULL,
+        item_quantity VARCHAR(255)
+      );
+    `);
+    console.log("User inventory table ready.");
+
+  } catch (err) {
+    console.error("Error initializing database schema:", err);
+    // Consider exiting if schema creation fails critically
+    process.exit(1);
+  } finally {
+    client.release(); // Release the client back to the pool
+  }
+};
+
+// Call initialization function during startup
+initializeDb().catch(err => console.error("Database initialization failed:", err));
+
 
 // Initialize OpenAI client
 // Ensure OPENAI_API_KEY is set in your .env file
@@ -120,44 +135,42 @@ app.post('/api/register', async (req, res) => {
     // Hash the password
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    // Insert user into the database
-    const sql = `INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)`;
-    db.run(sql, [username, email, password_hash], function(err) {
-      if (err) {
-        // Check for unique constraint violation (duplicate username or email)
-        if (err.message.includes('UNIQUE constraint failed')) {
-          console.error("Registration error: Duplicate username or email", { username, email });
-          return res.status(409).json({ success: false, message: 'Username or email already exists.' }); // 409 Conflict
-        }
-        // Other database errors
-        console.error("Database error during registration:", err.message);
-        return res.status(500).json({ success: false, message: 'Database error during registration.' });
-      }
-      // Success
-      console.log(`User registered successfully with ID: ${this.lastID}`, { username, email });
-      res.status(201).json({ success: true, message: 'User registered successfully.', userId: this.lastID }); // 201 Created
-    });
+    // Insert user into the database (PostgreSQL uses $1, $2, etc. for parameters)
+    // Use RETURNING id to get the new user's ID
+    const sql = `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id`;
+    const values = [username, email, password_hash];
+
+    const result = await pool.query(sql, values);
+    const userId = result.rows[0].id;
+
+    // Success
+    console.log(`User registered successfully with ID: ${userId}`, { username, email });
+    res.status(201).json({ success: true, message: 'User registered successfully.', userId: userId }); // 201 Created
 
   } catch (error) {
-    console.error("Error during password hashing:", error);
+    // Check for unique constraint violation (PostgreSQL error code 23505)
+    if (error.code === '23505') {
+      console.error("Registration error: Duplicate username or email", { username, email });
+      return res.status(409).json({ success: false, message: 'Username or email already exists.' }); // 409 Conflict
+    }
+    // Other errors (hashing or database)
+    console.error("Error during registration:", error);
     res.status(500).json({ success: false, message: 'Server error during registration.' });
   }
 });
 
 // --- Login Endpoint ---
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => { // Add async
   const { email, password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Email and password are required.' });
   }
 
-  const sql = `SELECT * FROM users WHERE email = ?`;
-  db.get(sql, [email], async (err, user) => { // Use db.get to find a single user
-    if (err) {
-      console.error("Database error during login:", err.message);
-      return res.status(500).json({ success: false, message: 'Database error during login.' });
-    }
+  const sql = `SELECT * FROM users WHERE email = $1`;
+  try {
+    const result = await pool.query(sql, [email]);
+    const user = result.rows[0]; // pg returns rows array, get the first element
 
     if (!user) {
       // User not found
@@ -195,32 +208,37 @@ app.post('/api/login', (req, res) => {
       console.error("Error comparing passwords:", compareError);
       res.status(500).json({ success: false, message: 'Server error during login.' });
     }
-  });
+  } catch (dbError) {
+      console.error("Database error during login:", dbError);
+      return res.status(500).json({ success: false, message: 'Database error during login.' });
+  }
 });
 
 // --- Protected User Data Endpoints ---
 
 // GET User Goals
-app.get('/api/user/goals', authenticateToken, (req, res) => {
+app.get('/api/user/goals', authenticateToken, async (req, res) => {
   const userId = req.user.userId; // Get user ID from verified token payload
-  const sql = `SELECT calories, protein FROM user_goals WHERE user_id = ?`;
+  const sql = `SELECT calories, protein FROM user_goals WHERE user_id = $1`;
 
-  db.get(sql, [userId], (err, row) => {
-    if (err) {
-      console.error("Database error getting goals:", err.message);
-      return res.status(500).json({ success: false, message: 'Database error fetching goals.' });
-    }
-    if (row) {
-      res.status(200).json({ success: true, goals: row });
+  try {
+    const result = await pool.query(sql, [userId]);
+    const goals = result.rows[0]; // Get the first row if it exists
+
+    if (goals) {
+      res.status(200).json({ success: true, goals: goals });
     } else {
-      // No goals set yet for this user, return null or default values? Let's return null.
+      // No goals set yet for this user
       res.status(200).json({ success: true, goals: null });
     }
-  });
+  } catch (err) {
+    console.error("Database error getting goals:", err);
+    return res.status(500).json({ success: false, message: 'Database error fetching goals.' });
+  }
 });
 
 // SAVE User Goals (using INSERT OR REPLACE for simplicity)
-app.post('/api/user/goals', authenticateToken, (req, res) => {
+app.post('/api/user/goals', authenticateToken, async (req, res) => { // Add async
   const userId = req.user.userId;
   const { calories, protein } = req.body;
 
@@ -229,38 +247,44 @@ app.post('/api/user/goals', authenticateToken, (req, res) => {
     return res.status(400).json({ success: false, message: 'Valid positive numbers for calories and protein are required.' });
   }
 
-  // Use INSERT OR REPLACE to either insert new goals or update existing ones for the user
-  const sql = `INSERT OR REPLACE INTO user_goals (user_id, calories, protein) VALUES (?, ?, ?)`;
+  // Use INSERT ... ON CONFLICT (PostgreSQL equivalent of INSERT OR REPLACE for primary key)
+  const sql = `
+    INSERT INTO user_goals (user_id, calories, protein)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (user_id)
+    DO UPDATE SET calories = EXCLUDED.calories, protein = EXCLUDED.protein;
+  `;
+  const values = [userId, parseInt(calories), parseInt(protein)];
 
-  db.run(sql, [userId, parseInt(calories), parseInt(protein)], function(err) {
-    if (err) {
-      console.error("Database error saving goals:", err.message);
-      return res.status(500).json({ success: false, message: 'Database error saving goals.' });
-    }
+  try {
+    await pool.query(sql, values);
     console.log(`Goals saved/updated for user ID: ${userId}`);
     res.status(200).json({ success: true, message: 'Goals saved successfully.' });
-  });
+  } catch (err) {
+    console.error("Database error saving goals:", err);
+    return res.status(500).json({ success: false, message: 'Database error saving goals.' });
+  }
 });
 
 // GET User Inventory
-app.get('/api/user/inventory', authenticateToken, (req, res) => {
+app.get('/api/user/inventory', authenticateToken, async (req, res) => { // Add async
   const userId = req.user.userId;
-  // Select id as well, needed for editing/deleting specific items
-  const sql = `SELECT id, item_name, item_quantity FROM user_inventory WHERE user_id = ? ORDER BY item_name`;
+  // Select id as well
+  const sql = `SELECT id, item_name, item_quantity FROM user_inventory WHERE user_id = $1 ORDER BY item_name`;
 
-  db.all(sql, [userId], (err, rows) => { // Use db.all to get all items
-    if (err) {
-      console.error("Database error getting inventory:", err.message);
-      return res.status(500).json({ success: false, message: 'Database error fetching inventory.' });
-    }
-    // Rename columns slightly for consistency with frontend if needed, or adjust frontend
-    const inventory = rows.map(row => ({ id: row.id, name: row.item_name, quantity: row.item_quantity }));
+  try {
+    const result = await pool.query(sql, [userId]);
+    // Map results to match expected frontend structure
+    const inventory = result.rows.map(row => ({ id: row.id, name: row.item_name, quantity: row.item_quantity }));
     res.status(200).json({ success: true, inventory: inventory });
-  });
+  } catch (err) {
+    console.error("Database error getting inventory:", err);
+    return res.status(500).json({ success: false, message: 'Database error fetching inventory.' });
+  }
 });
 
 // ADD User Inventory Item
-app.post('/api/user/inventory', authenticateToken, (req, res) => {
+app.post('/api/user/inventory', authenticateToken, async (req, res) => { // Add async
   const userId = req.user.userId;
   const { itemName, itemQuantity } = req.body; // Match frontend naming? Let's assume name/quantity for now
 
@@ -268,24 +292,29 @@ app.post('/api/user/inventory', authenticateToken, (req, res) => {
     return res.status(400).json({ success: false, message: 'Item name is required.' });
   }
 
-  const sql = `INSERT INTO user_inventory (user_id, item_name, item_quantity) VALUES (?, ?, ?)`;
-  db.run(sql, [userId, itemName, itemQuantity || null], function(err) { // Store null if quantity is empty
-    if (err) {
-      console.error("Database error adding inventory item:", err.message);
-      return res.status(500).json({ success: false, message: 'Database error adding item.' });
-    }
-    console.log(`Inventory item added for user ID: ${userId} with ID: ${this.lastID}`);
-    // Return the newly created item including its ID
+  // Use RETURNING id, item_name, item_quantity to get the newly inserted row
+  const sql = `INSERT INTO user_inventory (user_id, item_name, item_quantity) VALUES ($1, $2, $3) RETURNING id, item_name, item_quantity`;
+  const values = [userId, itemName, itemQuantity || null]; // Store null if quantity is empty
+
+  try {
+    const result = await pool.query(sql, values);
+    const newItem = result.rows[0];
+    console.log(`Inventory item added for user ID: ${userId} with ID: ${newItem.id}`);
+    // Return the newly created item
     res.status(201).json({
         success: true,
         message: 'Item added successfully.',
-        item: { id: this.lastID, name: itemName, quantity: itemQuantity || null }
+        // Map to expected frontend structure
+        item: { id: newItem.id, name: newItem.item_name, quantity: newItem.item_quantity }
     });
-  });
+  } catch (err) {
+    console.error("Database error adding inventory item:", err);
+    return res.status(500).json({ success: false, message: 'Database error adding item.' });
+  }
 });
 
 // DELETE User Inventory Item
-app.delete('/api/user/inventory/:id', authenticateToken, (req, res) => {
+app.delete('/api/user/inventory/:id', authenticateToken, async (req, res) => { // Add async
     const userId = req.user.userId;
     const itemId = req.params.id;
 
@@ -294,24 +323,26 @@ app.delete('/api/user/inventory/:id', authenticateToken, (req, res) => {
     }
 
     // Ensure the item belongs to the logged-in user before deleting
-    const sql = `DELETE FROM user_inventory WHERE id = ? AND user_id = ?`;
-    db.run(sql, [parseInt(itemId), userId], function(err) {
-        if (err) {
-            console.error("Database error deleting inventory item:", err.message);
-            return res.status(500).json({ success: false, message: 'Database error deleting item.' });
-        }
-        if (this.changes === 0) {
+    const sql = `DELETE FROM user_inventory WHERE id = $1 AND user_id = $2`;
+    const values = [parseInt(itemId), userId];
+
+    try {
+        const result = await pool.query(sql, values);
+        if (result.rowCount === 0) { // Check affected rows using rowCount
             // No row was deleted - either item didn't exist or didn't belong to user
              console.log(`Attempt to delete non-existent or unauthorized item ID: ${itemId} for user ID: ${userId}`);
             return res.status(404).json({ success: false, message: 'Item not found or not authorized.' });
         }
         console.log(`Inventory item deleted for user ID: ${userId}, Item ID: ${itemId}`);
         res.status(200).json({ success: true, message: 'Item deleted successfully.' });
-    });
+    } catch (err) {
+        console.error("Database error deleting inventory item:", err);
+        return res.status(500).json({ success: false, message: 'Database error deleting item.' });
+    }
 });
 
 // UPDATE User Inventory Item
-app.put('/api/user/inventory/:id', authenticateToken, (req, res) => {
+app.put('/api/user/inventory/:id', authenticateToken, async (req, res) => { // Add async
     const userId = req.user.userId;
     const itemId = req.params.id;
     const { itemName, itemQuantity } = req.body;
@@ -324,24 +355,34 @@ app.put('/api/user/inventory/:id', authenticateToken, (req, res) => {
     }
 
     // Ensure the item belongs to the logged-in user before updating
-    const sql = `UPDATE user_inventory SET item_name = ?, item_quantity = ? WHERE id = ? AND user_id = ?`;
-    db.run(sql, [itemName, itemQuantity || null, parseInt(itemId), userId], function(err) {
-        if (err) {
-            console.error("Database error updating inventory item:", err.message);
-            return res.status(500).json({ success: false, message: 'Database error updating item.' });
-        }
-         if (this.changes === 0) {
+    // Use RETURNING to get the updated row data
+    const sql = `
+        UPDATE user_inventory
+        SET item_name = $1, item_quantity = $2
+        WHERE id = $3 AND user_id = $4
+        RETURNING id, item_name, item_quantity
+    `;
+    const values = [itemName, itemQuantity || null, parseInt(itemId), userId];
+
+    try {
+        const result = await pool.query(sql, values);
+        if (result.rowCount === 0) { // Check affected rows
             // No row was updated - either item didn't exist or didn't belong to user
              console.log(`Attempt to update non-existent or unauthorized item ID: ${itemId} for user ID: ${userId}`);
             return res.status(404).json({ success: false, message: 'Item not found or not authorized.' });
         }
+        const updatedItem = result.rows[0];
         console.log(`Inventory item updated for user ID: ${userId}, Item ID: ${itemId}`);
         res.status(200).json({
             success: true,
             message: 'Item updated successfully.',
-            item: { id: parseInt(itemId), name: itemName, quantity: itemQuantity || null } // Return updated item
+            // Map to expected frontend structure
+            item: { id: updatedItem.id, name: updatedItem.item_name, quantity: updatedItem.item_quantity }
         });
-    });
+    } catch (err) {
+        console.error("Database error updating inventory item:", err);
+        return res.status(500).json({ success: false, message: 'Database error updating item.' });
+    }
 });
 
 
