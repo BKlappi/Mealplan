@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Call Backend API ---
         try {
-            const response = await fetch('http://localhost:3001/api/register', {
+            const response = await fetch('https://mealplan-backend-9d1p.onrender.com/api/register', { // Use Render URL
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

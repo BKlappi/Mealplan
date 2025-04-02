@@ -144,7 +144,7 @@ function handleRemoveItem(event) {
 
      try {
          console.log(`Sending request to backend for ${selectedMealType}...`);
-         const response = await fetch('http://localhost:3001/api/generate-meal', {
+         const response = await fetch('https://mealplan-backend-9d1p.onrender.com/api/generate-meal', { // Use Render URL
              method: 'POST',
              headers: {
                  'Content-Type': 'application/json',
