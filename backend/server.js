@@ -267,9 +267,8 @@ app.post('/api/user/goals', authenticateToken, async (req, res) => { // Add asyn
 });
 
 // GET User Inventory
-app.get('/api/user/inventory', authenticateToken, async (req, res) => { // Add async
+app.get('/api/user/inventory', authenticateToken, async (req, res) => { // Ensure async
   const userId = req.user.userId;
-  // Select id as well
   const sql = `SELECT id, item_name, item_quantity FROM user_inventory WHERE user_id = $1 ORDER BY item_name`;
 
   try {
@@ -282,6 +281,7 @@ app.get('/api/user/inventory', authenticateToken, async (req, res) => { // Add a
     return res.status(500).json({ success: false, message: 'Database error fetching inventory.' });
   }
 });
+
 
 // ADD User Inventory Item
 app.post('/api/user/inventory', authenticateToken, async (req, res) => { // Add async
