@@ -55,15 +55,28 @@ function displayInventory() {
 // *** CORRECTED loadData Function ***
 function loadData() {
     console.log("FUNC: loadData");
+    const userEmail = localStorage.getItem(LOGGED_IN_USER_KEY);
+    if (!userEmail) {
+        console.error("loadData: Cannot load data, user email not found in localStorage.");
+        // Optionally redirect to login or show an error
+        // window.location.href = 'login.html';
+        return;
+    }
+
+    // Construct user-specific keys
+    const userGoalsKey = `${GOALS_STORAGE_KEY}_${userEmail}`;
+    const userInventoryKey = `${INVENTORY_STORAGE_KEY}_${userEmail}`;
+    console.log(`Using storage keys: ${userGoalsKey}, ${userInventoryKey}`);
+
     try {
-         currentGoals = JSON.parse(localStorage.getItem(GOALS_STORAGE_KEY) || JSON.stringify(defaultGoals));
-         currentInventory = JSON.parse(localStorage.getItem(INVENTORY_STORAGE_KEY) || JSON.stringify(defaultInventory));
+         currentGoals = JSON.parse(localStorage.getItem(userGoalsKey) || JSON.stringify(defaultGoals));
+         currentInventory = JSON.parse(localStorage.getItem(userInventoryKey) || JSON.stringify(defaultInventory));
          // Ensure inventory is an array after parsing
          if (!Array.isArray(currentInventory)) {
              console.warn("Parsed inventory was not an array, resetting to empty.");
              currentInventory = []; // Default to empty array if parse fails or gives non-array
-             localStorage.setItem(INVENTORY_STORAGE_KEY,'[]'); // Save the empty array back
-         } // *** REMOVED STRAY SEMICOLON THAT WAS HERE ***
+             localStorage.setItem(userInventoryKey,'[]'); // Save the empty array back using the correct key
+         }
          console.log("--> Data loaded from storage:", { currentGoals, currentInventory });
          // Trigger UI updates AFTER data is confirmed loaded
          displayGoals();
@@ -92,7 +105,21 @@ function hideGoalsForm() {
 function handleSaveGoals(event) {
      console.log("HANDLER: handleSaveGoals"); event.preventDefault(); const calIn=document.getElementById('edit-calories'); const protIn=document.getElementById('edit-protein'); hideFeedback('goals-feedback'); if(!calIn||!protIn)return; const newC=parseInt(calIn.value); const newP=parseInt(protIn.value);
      if(isNaN(newC)||isNaN(newP)||newC<=0||newP<=0){showFeedback('goals-feedback','Positive numbers needed','error'); return;}
-     currentGoals={calories: newC, protein: newP}; localStorage.setItem(GOALS_STORAGE_KEY,JSON.stringify(currentGoals)); console.log("Goals saved", currentGoals); displayGoals(); hideGoalsForm(); showFeedback('goals-feedback','Goals Saved!','success');
+
+     const userEmail = localStorage.getItem(LOGGED_IN_USER_KEY);
+     if (!userEmail) {
+         console.error("handleSaveGoals: Cannot save goals, user email not found.");
+         showFeedback('goals-feedback', 'Error saving goals: Not logged in?', 'error');
+         return;
+     }
+     const userGoalsKey = `${GOALS_STORAGE_KEY}_${userEmail}`;
+
+     currentGoals={calories: newC, protein: newP};
+     localStorage.setItem(userGoalsKey, JSON.stringify(currentGoals)); // Use user-specific key
+     console.log(`Goals saved to ${userGoalsKey}`, currentGoals);
+     displayGoals();
+     hideGoalsForm();
+     showFeedback('goals-feedback','Goals Saved!','success');
  }
 function handleStartEditItem(event) {
      console.log("HANDLER: handleStartEditItem"); const index=parseInt(event.target.dataset.index); const item=currentInventory[index]; const nameIn=document.getElementById('item-name'); const quantIn=document.getElementById('item-quantity'); const submitBtn=document.getElementById('add-update-inventory-btn'); if(isNaN(index)||!item||!nameIn||!quantIn||!submitBtn){console.error("Start Edit Err"); return;} editingInventoryIndex=index; nameIn.value=item.name; quantIn.value=item.quantity||''; submitBtn.textContent='Update Item'; submitBtn.classList.add('update-mode'); nameIn.focus(); hideFeedback('inventory-feedback'); console.log("--> Edit form populated.");
@@ -100,7 +127,20 @@ function handleStartEditItem(event) {
 function handleInventorySubmit(event) {
      console.log("HANDLER: handleInventorySubmit"); event.preventDefault(); const nameIn=document.getElementById('item-name'); const quantIn=document.getElementById('item-quantity'); const formEl=document.getElementById('add-inventory-form'); hideFeedback('inventory-feedback'); if(!nameIn||!quantIn||!formEl)return; const name=nameIn.value.trim(); const quantity=quantIn.value.trim(); if(!name){showFeedback('inventory-feedback','Name needed','error'); return;} console.log("Inv Submit: editing=", editingInventoryIndex); console.log("Inv Before:", JSON.stringify(currentInventory));
      if(editingInventoryIndex!==null){ if(editingInventoryIndex>=0&&editingInventoryIndex<currentInventory.length){currentInventory[editingInventoryIndex]={name,quantity};}else{console.error("Bad edit index");}} else{currentInventory.push({name,quantity});}
-     console.log("Inv After:", JSON.stringify(currentInventory)); localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(currentInventory)); displayInventory(); resetInventoryForm(); showFeedback('inventory-feedback', editingInventoryIndex!==null ? 'Item Updated!':'Item Added!', 'success');
+
+     const userEmail = localStorage.getItem(LOGGED_IN_USER_KEY);
+     if (!userEmail) {
+         console.error("handleInventorySubmit: Cannot save inventory, user email not found.");
+         showFeedback('inventory-feedback', 'Error saving item: Not logged in?', 'error');
+         return;
+     }
+     const userInventoryKey = `${INVENTORY_STORAGE_KEY}_${userEmail}`;
+
+     console.log("Inv After:", JSON.stringify(currentInventory));
+     localStorage.setItem(userInventoryKey, JSON.stringify(currentInventory)); // Use user-specific key
+     displayInventory();
+     resetInventoryForm();
+     showFeedback('inventory-feedback', editingInventoryIndex!==null ? 'Item Updated!':'Item Added!', 'success');
  }
 function resetInventoryForm() {
      console.log("HANDLER: resetInventoryForm"); const formEl=document.getElementById('add-inventory-form'); const submitBtn=document.getElementById('add-update-inventory-btn'); if(formEl)formEl.reset(); if(submitBtn){submitBtn.textContent='Add Item'; submitBtn.classList.remove('update-mode');} editingInventoryIndex=null; hideFeedback('inventory-feedback'); console.log("--> Form reset to Add.");
@@ -113,7 +153,22 @@ function handleRemoveItem(event) {
      // Use window.confirm
      if (window.confirm(`Are you sure you want to remove "${item.name}"?`)) {
         console.log("--> User CONFIRMED remove.");
-        if(editingInventoryIndex===indexToRemove){ resetInventoryForm(); } console.log("--> Inv BEFORE:",JSON.stringify(currentInventory)); const removed=currentInventory.splice(indexToRemove, 1); console.log("--> Inv AFTER:",JSON.stringify(currentInventory)); localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(currentInventory)); displayInventory(); showFeedback('inventory-feedback', `"${item.name}" Removed`, 'success');
+        if(editingInventoryIndex===indexToRemove){ resetInventoryForm(); }
+
+        const userEmail = localStorage.getItem(LOGGED_IN_USER_KEY);
+        if (!userEmail) {
+            console.error("handleRemoveItem: Cannot save inventory, user email not found.");
+            showFeedback('inventory-feedback', 'Error removing item: Not logged in?', 'error');
+            return;
+        }
+        const userInventoryKey = `${INVENTORY_STORAGE_KEY}_${userEmail}`;
+
+        console.log("--> Inv BEFORE:",JSON.stringify(currentInventory));
+        const removed=currentInventory.splice(indexToRemove, 1);
+        console.log("--> Inv AFTER:",JSON.stringify(currentInventory));
+        localStorage.setItem(userInventoryKey, JSON.stringify(currentInventory)); // Use user-specific key
+        displayInventory();
+        showFeedback('inventory-feedback', `"${item.name}" Removed`, 'success');
      } else {
          console.log("--> User CANCELED remove.");
      }
