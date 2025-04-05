@@ -5,8 +5,8 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg'); // Import pg Pool
 const bcrypt = require('bcrypt'); // Import bcrypt for password hashing
-// Import the OpenAI library
-const { OpenAI } = require('openai');
+// Import the Google Generative AI library
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
 const jwt = require('jsonwebtoken'); // Import jsonwebtoken
 
 // --- Constants ---
@@ -77,11 +77,15 @@ const initializeDb = async () => {
 initializeDb().catch(err => console.error("Database initialization failed:", err));
 
 
-// Initialize OpenAI client
-// Ensure OPENAI_API_KEY is set in your .env file
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize Google Generative AI client
+// Ensure GOOGLE_API_KEY is set in your .env file
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+if (!GOOGLE_API_KEY) {
+  console.error("FATAL ERROR: GOOGLE_API_KEY is not defined in .env file. Cannot proceed.");
+  process.exit(1); // Exit if key is missing
+}
+const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" }); // Or "gemini-pro" if 1.5 isn't needed/available
 
 const app = express();
 const port = process.env.PORT || 3001; // Use port 3001 or environment variable
@@ -434,43 +438,51 @@ Generate the JSON output now.
   console.log("-----------------------------");
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // Or use "gpt-4" if preferred/available
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7, // Adjust creativity vs. predictability
-      response_format: { type: "json_object" }, // Request JSON output if model supports it
+    // Configuration for Gemini - Request JSON output and set safety settings
+    const generationConfig = {
+      temperature: 0.7,
+      // topK: 1, // Optional
+      // topP: 1, // Optional
+      // maxOutputTokens: 2048, // Optional
+      responseMimeType: "application/json", // Request JSON output directly
+    };
+
+    const safetySettings = [ // Adjust safety settings as needed
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+    ];
+
+    const result = await geminiModel.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig,
+        safetySettings,
     });
 
-    console.log("--- Received Response from OpenAI ---");
-    const rawResponse = completion.choices[0]?.message?.content;
-    console.log(rawResponse);
-    console.log("-----------------------------------");
-
-    if (!rawResponse) {
-        throw new Error("OpenAI response was empty.");
+    console.log("--- Received Response from Google AI ---");
+    if (!result.response) {
+        console.error("Google AI response was missing.");
+        // Check for safety blocks
+        if (result.promptFeedback?.blockReason) {
+             console.error(`Blocked due to: ${result.promptFeedback.blockReason}`);
+             throw new Error(`Request blocked by safety settings: ${result.promptFeedback.blockReason}`);
+        }
+        throw new Error("Google AI response was empty or incomplete.");
     }
+
+    const responseText = result.response.text(); // Gemini returns text directly when JSON is requested
+    console.log(responseText);
+    console.log("--------------------------------------");
 
     // Attempt to parse the JSON response from the AI
     let mealData;
     try {
-        mealData = JSON.parse(rawResponse);
+        mealData = JSON.parse(responseText);
     } catch (parseError) {
-        console.error("Failed to parse OpenAI JSON response:", parseError);
-        // Attempt to extract JSON if it's embedded in markdown ```json ... ```
-        const jsonMatch = rawResponse.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch && jsonMatch[1]) {
-            try {
-                mealData = JSON.parse(jsonMatch[1]);
-                console.log("Successfully extracted and parsed JSON from markdown.");
-            } catch (nestedParseError) {
-                console.error("Failed to parse extracted JSON:", nestedParseError);
-                throw new Error("AI response was not valid JSON, even after extraction.");
-            }
-        } else {
-            throw new Error("AI response was not valid JSON.");
-        }
+        console.error("Failed to parse Google AI JSON response:", parseError, responseText);
+        throw new Error("AI response was not valid JSON.");
     }
-
 
     // Check if the AI indicated it could generate a meal
     if (mealData.can_generate === false) {
@@ -491,8 +503,8 @@ Generate the JSON output now.
     });
 
   } catch (error) {
-    console.error('Error calling OpenAI API:', error);
-    res.status(500).json({ error: 'Failed to generate meal suggestion from AI.' });
+    console.error('Error calling Google AI API:', error);
+    res.status(500).json({ error: `Failed to generate meal suggestion from AI: ${error.message}` });
   }
 });
 
