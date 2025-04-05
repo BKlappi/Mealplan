@@ -62,22 +62,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Error Display Functions (Keep as they are)
-    function showError(message) {
+    // Updated Feedback Display Functions
+    function showError(message) { // Keep name, but use new classes
         if (errorDiv) {
             errorDiv.textContent = message;
-            errorDiv.classList.add('visible'); // ADD visible class
-            // Remove direct style manipulation if relying on CSS class
-            // errorDiv.style.display = 'block';
+            // Ensure base class is present, add error and visible
+            errorDiv.className = 'feedback-message error visible';
         }
     }
 
-    function hideError() {
+    function hideError() { // Keep name, but use new classes
          if (errorDiv) {
-             errorDiv.textContent = ''; // Clear the text
-             errorDiv.classList.remove('visible'); // REMOVE visible class
-              // Remove direct style manipulation if relying on CSS class
-             // errorDiv.style.display = 'none';
+             errorDiv.textContent = '';
+             // Remove visible and specific type, keep base class
+             errorDiv.className = 'feedback-message';
          }
     }
 });

@@ -155,3 +155,67 @@
   .error-message.visible { /* Class added by JS to show */
       display: block;
   }
+
+/* ===== Feedback Message Styling ===== */
+.feedback-message {
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    font-size: 0.95em;
+    border: 1px solid transparent; /* Base border */
+    text-align: center;
+    display: none; /* Hidden by default */
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, opacity 0.3s ease;
+    opacity: 0; /* Start hidden for transition */
+}
+
+.feedback-message.visible { /* Class added by JS to show */
+    display: block;
+    opacity: 1;
+}
+
+/* Error Specific */
+.feedback-message.error {
+    border-color: var(--danger-border);
+    background-color: rgba(var(--danger-color-rgb), 0.1);
+    color: var(--danger-color);
+}
+
+/* Success Specific */
+.feedback-message.success {
+    --success-color: #28a745; /* Green */
+    --success-border: #218838;
+    --success-color-rgb: 40, 167, 69;
+
+    border-color: var(--success-border);
+    background-color: rgba(var(--success-color-rgb), 0.1);
+    color: var(--success-color);
+}
+
+/* Adjust success colors for light mode if needed */
+.light-mode .feedback-message.success {
+     --success-color: #218838;
+     --success-border: #1e7e34;
+     --success-color-rgb: 33, 136, 56;
+}
+
+/* Info Specific (Optional - if needed later) */
+.feedback-message.info {
+    --info-color: #17a2b8; /* Teal/Info Blue */
+    --info-border: #117a8b;
+    --info-color-rgb: 23, 162, 184;
+
+    border-color: var(--info-border);
+    background-color: rgba(var(--info-color-rgb), 0.1);
+    color: var(--info-color);
+}
+
+/* Adjust info colors for light mode if needed */
+.light-mode .feedback-message.info {
+     --info-color: #117a8b;
+     --info-border: #0f6674;
+     --info-color-rgb: 17, 122, 139;
+}
+
+/* Remove old .error-message if no longer needed, or keep if used elsewhere */
+/* We might need to update JS to use .feedback-message.error instead */

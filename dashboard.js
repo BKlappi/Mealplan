@@ -44,25 +44,35 @@ async function fetchWithAuth(url, options = {}) {
     return response; // Return the full response object
 }
 
-
-function showFeedback(elementId, message, type = 'info', duration = 4000) { // Added duration back
+// Updated showFeedback to use new CSS classes
+function showFeedback(elementId, message, type = 'info', duration = 4000) {
     const element = document.getElementById(elementId);
-    if (!element) { console.warn("showFeedback: target missing", elementId); return; }
-    if (element.feedbackTimeout) { clearTimeout(element.feedbackTimeout); } // Clear previous timeout
+    if (!element) { console.warn("showFeedback: target element missing", elementId); return; }
+
+    // Clear previous timeout if exists
+    if (element.feedbackTimeout) { clearTimeout(element.feedbackTimeout); }
+
     element.textContent = message;
-    element.className = `feedback ${type}`; // Use template literal or specific class adds
-    element.classList.remove('hidden');
-    // Optional: Auto-hide after duration
+    // Set base class, type class (error/success/info), and visible
+    element.className = `feedback-message ${type} visible`; // Ensure base class is always present
+
+    // Auto-hide after duration if duration is positive
     if (duration > 0) {
-         element.feedbackTimeout = setTimeout(() => { element.classList.add('hidden'); element.textContent = ''; }, duration);
+         element.feedbackTimeout = setTimeout(() => {
+             hideFeedback(elementId); // Call hideFeedback to properly reset classes
+         }, duration);
     }
 }
+
+// Updated hideFeedback to use new CSS classes
 function hideFeedback(elementId) {
      const element = document.getElementById(elementId);
      if (element) {
-         if (element.feedbackTimeout) { clearTimeout(element.feedbackTimeout); } // Clear timeout if hiding manually
-         element.classList.add('hidden');
+         // Clear timeout if hiding manually before it expires
+         if (element.feedbackTimeout) { clearTimeout(element.feedbackTimeout); }
          element.textContent = '';
+         // Reset to base class only (hides it due to opacity/display none in CSS)
+         element.className = 'feedback-message';
       }
  }
  

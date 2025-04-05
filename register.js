@@ -6,20 +6,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const passwordConfirmInput = document.getElementById('password_confirm');
     const feedbackDiv = document.getElementById('register-error'); // Get the feedback div
 
-    // Function to display feedback messages
-    function showFeedback(message, isError = true) {
+    // Updated Function to display feedback messages using new classes
+    function showFeedback(message, type = 'error') { // Default to error type
         if (!feedbackDiv) return;
         feedbackDiv.textContent = message;
-        feedbackDiv.className = isError ? 'error-message visible' : 'feedback success visible'; // Use appropriate classes
-        // Note: You might need to add 'feedback', 'success', 'visible' classes to your CSS if not already present
-        // For now, reusing 'error-message' and adding 'visible'
+        // Set base class, type class (error/success), and visible
+        feedbackDiv.className = `feedback-message ${type} visible`;
     }
 
-    // Function to hide feedback
+    // Updated Function to hide feedback
     function hideFeedback() {
         if (!feedbackDiv) return;
         feedbackDiv.textContent = '';
-        feedbackDiv.className = 'error-message'; // Hide it
+        // Reset to base class only (hides it due to opacity/display none)
+        feedbackDiv.className = 'feedback-message';
     }
 
 
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok && data.success) { // Check for success status (e.g., 201 Created) and success flag
                 // Registration successful
                 // Show success message briefly before redirecting
-                showFeedback('Registration successful! Redirecting to login...', false); // false indicates not an error
+                showFeedback('Registration successful! Redirecting to login...', 'success'); // Use 'success' type
                 setTimeout(() => {
                     window.location.href = 'login.html'; // Redirect to login page
                 }, 1500); // Wait 1.5 seconds
