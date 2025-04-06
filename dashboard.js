@@ -169,10 +169,34 @@ async function loadData() { // Make async
         }
     }
     console.log("loadData finished");
+ }
+
+// --- Mode Change Handler ---
+function handleModeChange() {
+    const mode = document.querySelector('input[name="generation-mode"]:checked').value;
+    const mealTypeGroup = document.getElementById('meal-type-group');
+    const mealGoalInputs = document.getElementById('meal-goal-inputs');
+    const generateBtn = document.getElementById('generate-plan-btn');
+    const mealPlanContent = document.getElementById('meal-plan-content');
+
+    console.log(`Mode changed to: ${mode}`);
+
+    if (mode === 'meal') {
+        mealTypeGroup.classList.remove('hidden');
+        mealGoalInputs.classList.remove('hidden');
+        generateBtn.textContent = 'Generate Meal Idea';
+        mealPlanContent.innerHTML = '<p>Select meal type, optionally set specific goals, and generate.</p>'; // Reset content area
+    } else { // daily mode
+        mealTypeGroup.classList.add('hidden');
+        mealGoalInputs.classList.add('hidden');
+        generateBtn.textContent = 'Generate Daily Plan';
+         mealPlanContent.innerHTML = '<p>Click button to generate a full day plan based on your daily goals and inventory.</p>'; // Reset content area
+    }
+    hideFeedback('meal-plan-feedback'); // Hide any previous feedback
 }
 
 
-// --- Action Handlers ---
+ // --- Action Handlers ---
 function showGoalsForm() {
     console.log("HANDLER: showGoalsForm"); const dispEl=document.getElementById('goals-display'); const formEl=document.getElementById('goals-form'); const editBtnEl=document.getElementById('edit-goals-btn'); const calIn=document.getElementById('edit-calories'); const protIn=document.getElementById('edit-protein'); hideFeedback('goals-feedback');
     if(dispEl&&formEl&&editBtnEl&&calIn&&protIn){ console.log("Toggling classes SHOW form"); calIn.value=currentGoals.calories||''; protIn.value=currentGoals.protein||''; dispEl.classList.add('hidden'); formEl.classList.remove('hidden'); editBtnEl.classList.add('hidden');} else {console.warn("Elements missing showGoalsForm");}
@@ -363,102 +387,187 @@ async function handleRemoveItem(event) { // Make async
      window.location.href = 'index.html';
  }
 
- // Updated function to call the backend API
+ // Updated function to call the backend API and handle different modes
  async function handleGeneratePlan() {
      console.log("HANDLER: handleGeneratePlan");
      const mealPlanContentEl = document.getElementById('meal-plan-content');
-     const mealTypeSelectEl = document.getElementById('meal-type-select');
      const generateBtn = document.getElementById('generate-plan-btn');
+     const selectedMode = document.querySelector('input[name="generation-mode"]:checked').value;
 
-     if (!mealPlanContentEl || !mealTypeSelectEl || !generateBtn) {
+     if (!mealPlanContentEl || !generateBtn) {
          console.error("Generate plan elements missing!");
          return;
      }
 
-     const selectedMealType = mealTypeSelectEl.value;
-     // Ensure goals and inventory are loaded (they should be by loadData)
-     const goalsToSend = currentGoals;
-     const inventoryToSend = currentInventory;
-
      // --- UI Update: Show Loading State ---
-     mealPlanContentEl.innerHTML = '<p><i>Generating meal idea...</i></p>';
-     generateBtn.disabled = true; // Disable button while loading
-     hideFeedback('meal-plan-feedback'); // Assuming a feedback element exists or will be added
+     mealPlanContentEl.innerHTML = `<p><i>Generating ${selectedMode === 'daily' ? 'daily plan' : 'meal idea'}...</i></p>`;
+     generateBtn.disabled = true;
+     hideFeedback('meal-plan-feedback');
+
+     // Prepare request body based on mode
+     const requestBody = {
+         mode: selectedMode,
+         goals: currentGoals, // Always send daily goals for context
+         inventory_list: currentInventory
+     };
+
+     if (selectedMode === 'meal') {
+         const mealTypeSelectEl = document.getElementById('meal-type-select');
+         const mealCaloriesInput = document.getElementById('meal-calories');
+         const mealProteinInput = document.getElementById('meal-protein');
+
+         requestBody.meal_type = mealTypeSelectEl.value;
+         requestBody.meal_calories = mealCaloriesInput.value ? parseInt(mealCaloriesInput.value) : null;
+         requestBody.meal_protein = mealProteinInput.value ? parseInt(mealProteinInput.value) : null;
+     }
+
+     console.log(`Sending request to backend (Mode: ${selectedMode}) with body:`, requestBody);
 
      try {
-         console.log(`Sending request to backend for ${selectedMealType}...`);
-         const response = await fetch('https://mealplan-backend-9d1p.onrender.com/api/generate-meal', { // Use Render URL
+         // Use fetchWithAuth as this might become a protected endpoint later
+         const response = await fetchWithAuth(`${API_BASE_URL}/generate-meal`, {
              method: 'POST',
-             headers: {
-                 'Content-Type': 'application/json',
-             },
-             body: JSON.stringify({
-                 meal_type: selectedMealType,
-                 goals: goalsToSend,
-                 inventory_list: inventoryToSend
-             }),
+             body: JSON.stringify(requestBody)
          });
 
          if (!response.ok) {
-             // Handle HTTP errors (e.g., 404, 500)
-             const errorText = await response.text();
-             throw new Error(`Network response was not ok: ${response.status} ${response.statusText} - ${errorText}`);
+             const errorData = await response.json().catch(() => ({ message: 'Unknown server error' }));
+             throw new Error(`Network response was not ok: ${response.status} ${response.statusText} - ${errorData.message || errorData.error}`);
          }
 
          const data = await response.json();
          console.log("Received data from backend:", data);
 
+         if (!data.success) {
+             // Handle cases where the backend reports generation failure (e.g., can_generate: false)
+             showFeedback('meal-plan-feedback', data.message || 'Could not generate plan/meal.', 'error');
+             mealPlanContentEl.innerHTML = `<p>${data.message || 'Could not generate plan/meal.'}</p>`;
+             return; // Stop further processing
+         }
+
          // --- UI Update: Display Result ---
-         let resultHtml = `<h4 class="meal-plan-title">${data.meal_name || 'Generated Meal'}</h4>`;
+         mealPlanContentEl.innerHTML = ''; // Clear loading message
 
-         // Display estimated calories and protein if available
-         if (data.estimated_calories !== null || data.estimated_protein !== null) {
-             resultHtml += `<p class="meal-plan-nutrition">`;
-             if (data.estimated_calories !== null) {
-                 resultHtml += `Approx. Calories: ${data.estimated_calories} kcal`;
+         if (data.mode === 'meal' && data.can_generate) {
+             // Display single meal result directly
+             let resultHtml = `<h4 class="meal-plan-title">${data.meal_name || 'Generated Meal'}</h4>`;
+             if (data.estimated_calories !== null || data.estimated_protein !== null) {
+                 resultHtml += `<p class="meal-plan-nutrition">`;
+                 if (data.estimated_calories !== null) resultHtml += `Approx. Calories: ${data.estimated_calories} kcal`;
+                 if (data.estimated_calories !== null && data.estimated_protein !== null) resultHtml += ` | `;
+                 if (data.estimated_protein !== null) resultHtml += `Approx. Protein: ${data.estimated_protein} g`;
+                 resultHtml += `</p>`;
              }
-             if (data.estimated_calories !== null && data.estimated_protein !== null) {
-                 resultHtml += ` | `; // Separator
+             if (data.recipe_steps && Array.isArray(data.recipe_steps)) {
+                 resultHtml += '<ul class="meal-plan-steps">';
+                 data.recipe_steps.forEach(step => { resultHtml += `<li class="meal-item">${step}</li>`; });
+                 resultHtml += '</ul>';
+             } else {
+                 resultHtml += '<p>No recipe steps provided.</p>';
              }
-             if (data.estimated_protein !== null) {
-                 resultHtml += `Approx. Protein: ${data.estimated_protein} g`;
-             }
-             resultHtml += `</p>`;
-         }
+             mealPlanContentEl.innerHTML = resultHtml;
+             showFeedback('meal-plan-feedback', 'Meal idea generated!', 'success');
 
-         if (data.recipe_steps && Array.isArray(data.recipe_steps)) {
-             resultHtml += '<ul class="meal-plan-steps">'; // Add class for potential styling
-             data.recipe_steps.forEach(step => {
-                 resultHtml += `<li class="meal-item">${step}</li>`; // Use meal-item class for potential styling
+         } else if (data.mode === 'daily' && data.can_generate) {
+             // Display buttons for daily plan
+             mealPlanContentEl.innerHTML = `<h4 class="meal-plan-title">Generated Daily Plan</h4>`;
+             const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack1', 'snack2'];
+             const buttonContainer = document.createElement('div');
+             buttonContainer.className = 'daily-plan-buttons'; // Add class for styling
+
+             let planDataForStorage = {}; // Object to store data for recipe page
+
+             mealTypes.forEach(mealKey => {
+                 const meal = data[mealKey];
+                 if (meal && meal.meal_name) {
+                     const button = document.createElement('button');
+                     button.textContent = `${mealKey.charAt(0).toUpperCase() + mealKey.slice(1)}: ${meal.meal_name}`;
+                     button.classList.add('submit-button', 'meal-plan-button'); // Style as needed
+                     button.dataset.mealKey = mealKey; // Store key to identify meal
+
+                     // Store meal data for the recipe page using sessionStorage
+                     const storageKey = `mealData_${mealKey}`;
+                     planDataForStorage[storageKey] = meal; // Add to temporary object
+
+                     button.addEventListener('click', (e) => {
+                         const key = e.target.dataset.mealKey;
+                         const mealStorageKey = `mealData_${key}`;
+                         // Store the specific meal's data before navigating
+                         sessionStorage.setItem('currentRecipeData', JSON.stringify(planDataForStorage[mealStorageKey]));
+                         window.location.href = 'recipe.html'; // Navigate to recipe page
+                     });
+                     buttonContainer.appendChild(button);
+                 }
              });
-             resultHtml += '</ul>';
+
+             // Store the entire plan data in sessionStorage (might be large)
+             // Alternatively, only store keys and fetch details on recipe page if needed
+             sessionStorage.setItem('fullPlanData', JSON.stringify(planDataForStorage));
+
+             mealPlanContentEl.appendChild(buttonContainer);
+             if (data.generation_notes) {
+                 mealPlanContentEl.innerHTML += `<p><i>Note: ${data.generation_notes}</i></p>`;
+             }
+             showFeedback('meal-plan-feedback', 'Daily plan generated! Click a meal button to view the recipe.', 'success', 6000); // Longer duration
+
          } else {
-             resultHtml += '<p>No recipe steps provided.</p>';
+             // Handle unexpected response structure
+             console.error("Unexpected response structure:", data);
+             showFeedback('meal-plan-feedback', 'Received unexpected data from server.', 'error');
+             mealPlanContentEl.innerHTML = '<p>Could not display the generated plan.</p>';
          }
-         mealPlanContentEl.innerHTML = resultHtml;
-         // Optional: Show success feedback
-         // showFeedback('meal-plan-feedback', 'Meal idea generated!', 'success');
 
      } catch (error) {
          console.error('Error generating meal plan:', error);
-         // --- UI Update: Display Error ---
-         mealPlanContentEl.innerHTML = `<p style="color: var(--danger-color);">Error generating meal idea. Please try again later.</p>`;
-         // Optional: Show error feedback
-         // showFeedback('meal-plan-feedback', 'Error generating meal.', 'error');
+         mealPlanContentEl.innerHTML = `<p style="color: var(--danger-color);">Error generating plan: ${error.message}. Please try again later.</p>`;
+         showFeedback('meal-plan-feedback', `Error: ${error.message}`, 'error');
      } finally {
-         // --- UI Update: Reset Loading State ---
          generateBtn.disabled = false; // Re-enable button
          console.log("--> Meal plan generation attempt finished.");
      }
  }
 
 
-// --- Attach Static Listeners (Once on Init) ---
+ // --- Attach Static Listeners (Once on Init) ---
  function attachStaticListeners() {
      console.log("Attaching Static Listeners...");
-     let success = true; const attach = (id, event, handler) => { const el=document.getElementById(id); if(el && !el.listenerAttached){ el.addEventListener(event, handler); el.listenerAttached=true; console.log(`Listener Attached: ${event} on #${id}`);} else if(!el){console.warn(`Attach Fail #${id}`); success=false;} else {console.log(`Listener Already Attached: ${event} on #${id}`);}};
-     attach('edit-goals-btn', 'click', showGoalsForm); attach('cancel-goals-btn', 'click', hideGoalsForm); attach('goals-form', 'submit', handleSaveGoals); attach('add-inventory-form', 'submit', handleInventorySubmit); attach('logout-button', 'click', handleLogout); attach('generate-plan-btn', 'click', handleGeneratePlan);
-     // Removed listener attachment for '.close-view-btn'
+     let success = true;
+     const attach = (id, event, handler) => {
+         const el = document.getElementById(id);
+         if (el && !el.listenerAttached) {
+             el.addEventListener(event, handler);
+             el.listenerAttached = true;
+             console.log(`Listener Attached: ${event} on #${id}`);
+         } else if (!el) {
+             console.warn(`Attach Fail #${id}`);
+             success = false;
+         } else {
+             console.log(`Listener Already Attached: ${event} on #${id}`);
+         }
+     };
+
+     attach('edit-goals-btn', 'click', showGoalsForm);
+     attach('cancel-goals-btn', 'click', hideGoalsForm);
+     attach('goals-form', 'submit', handleSaveGoals);
+     attach('add-inventory-form', 'submit', handleInventorySubmit);
+     attach('logout-button', 'click', handleLogout);
+     attach('generate-plan-btn', 'click', handleGeneratePlan);
+
+     // Add listeners for mode change
+     const modeRadios = document.querySelectorAll('input[name="generation-mode"]');
+     modeRadios.forEach(radio => {
+         if (radio && !radio.listenerAttached) {
+             radio.addEventListener('change', handleModeChange);
+             radio.listenerAttached = true;
+             console.log(`Listener Attached: change on input[value="${radio.value}"]`);
+         } else if (!radio) {
+             console.warn(`Attach Fail input[name="generation-mode"]`);
+             success = false;
+         }
+     });
+     // Initial UI setup based on default mode
+     handleModeChange(); // Call once to set initial state
+
      console.log(`Static Listener Attachment finished. Success: ${success}`);
      return success; // Return success status
  }

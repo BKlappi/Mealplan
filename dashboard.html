@@ -55,23 +55,51 @@
 
                 <!-- == Meal Plan Section START == -->
                 <section class="dashboard-section meal-plan">
-                    <h2>Generate a Meal Idea</h2>
-                    <!-- Meal Type Selection -->
-                    <div class="form-group" style="margin-bottom: 15px;"> <!-- Added form-group for consistency -->
+                    <h2>Generate Meal Plan</h2>
+
+                    <!-- Mode Selection -->
+                    <div class="form-group mode-selection">
+                        <label>Select Mode:</label>
+                        <div>
+                            <input type="radio" id="mode-meal" name="generation-mode" value="meal" checked>
+                            <label for="mode-meal">Single Meal Goal</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="mode-daily" name="generation-mode" value="daily">
+                            <label for="mode-daily">Full Daily Plan</label>
+                        </div>
+                    </div>
+
+                    <!-- Meal Type Selection (Only for Single Meal Mode) -->
+                    <div class="form-group" id="meal-type-group">
                         <label for="meal-type-select">Select Meal Type:</label>
-                        <select id="meal-type-select" name="mealType" style="padding: 10px; border-radius: 5px; border: 1px solid var(--input-border); background-color: var(--input-bg); color: var(--text-primary); font-size: 1em;">
+                        <select id="meal-type-select" name="mealType">
                             <option value="Breakfast">Breakfast</option>
                             <option value="Lunch">Lunch</option>
                             <option value="Dinner">Dinner</option>
                             <option value="Snack">Snack</option>
                         </select>
                     </div>
+
+                    <!-- Specific Meal Goals (Only for Single Meal Mode) -->
+                    <div id="meal-goal-inputs" class="hidden">
+                         <div class="form-group">
+                            <label for="meal-calories">Target Calories (for this meal):</label>
+                            <input type="number" id="meal-calories" name="meal_calories" placeholder="Optional">
+                        </div>
+                         <div class="form-group">
+                            <label for="meal-protein">Target Protein (g, for this meal):</label>
+                            <input type="number" id="meal-protein" name="meal_protein" placeholder="Optional">
+                        </div>
+                    </div>
+
                     <!-- Meal Plan Display Area -->
-                    <div id="meal-plan-content" style="margin-bottom: 20px;"> <!-- Added margin-bottom -->
-                        <p>Select a meal type and click the button below to generate an idea based on your inventory.</p>
+                    <div id="meal-plan-content" style="margin-bottom: 20px;">
+                        <p>Select a mode and click the button below.</p>
                     </div>
                     <!-- Generate Button -->
-                    <button id="generate-plan-btn" class="submit-button" style="width: 100%;">Generate Meal Idea</button>
+                    <button id="generate-plan-btn" class="submit-button" style="width: 100%;">Generate</button> <!-- Text updated by JS -->
+                    <p class="feedback-message hidden" id="meal-plan-feedback"></p> <!-- Feedback area for this section -->
                 </section>
                 <!-- == Meal Plan Section END == -->
 
