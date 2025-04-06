@@ -441,6 +441,7 @@ async function handleGeneratePlan() {
 
         const data = await response.json();
         console.log("Received data from backend:", data);
+        console.log("Received data from backend (stringified):", JSON.stringify(data));
 
         if (!data.success) {
             // Handle cases where the backend reports generation failure (e.g., can_generate: false)

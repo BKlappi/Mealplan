@@ -89,6 +89,7 @@ const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" })
 
 const app = express();
 const port = process.env.PORT || 3001; // Use port 3001 or environment variable
+console.log("Server listening on port:", port);
 
 // === Middleware ===
 // Enable CORS for all origins (adjust for production later if needed)
