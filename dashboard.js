@@ -471,7 +471,6 @@ async function handleGeneratePlan() {
             }
             mealPlanContentEl.innerHTML = resultHtml;
             showFeedback('meal-plan-feedback', 'Meal idea generated!', 'success');
-
         } else if (data.mode === 'daily' && data.can_generate) {
             // Display buttons for daily plan
             mealPlanContentEl.innerHTML = `<h4 class="meal-plan-title">Generated Daily Plan</h4>`;
