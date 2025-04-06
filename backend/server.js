@@ -391,46 +391,44 @@ app.put('/api/user/inventory/:id', authenticateToken, async (req, res) => { // A
 
 
 // --- Meal Generation Endpoint (Revised for Modes) ---
-app.post('/api/generate-meal', async (req, res) => { // Make handler async
-  console.log("Received generation request body:", req.body);
-  const {
-      mode, // 'meal' or 'daily'
-      meal_type, // Only relevant for 'meal' mode
-      goals, // User's daily goals (used in both modes, differently)
-      inventory_list,
-      meal_calories, // Only relevant for 'meal' mode
-      meal_protein // Only relevant for 'meal' mode
-  } = req.body;
+app.post('/api/generate-meal', async (req, res) => {
+    console.log("Received generation request body:", req.body);
+    const {
+        mode,
+        meal_type,
+        goals,
+        inventory_list,
+        meal_calories,
+        meal_protein
+    } = req.body;
 
-  // Basic validation
-  if (!mode || !goals || !inventory_list) {
-    return res.status(400).json({ error: 'Missing required fields: mode, goals, inventory_list' });
-  }
-  if (mode === 'meal' && !meal_type) {
-      return res.status(400).json({ error: 'Missing required field for meal mode: meal_type' });
-  }
-  if (!Array.isArray(inventory_list)) {
-      return res.status(400).json({ error: 'inventory_list must be an array' });
-  }
+    // Basic validation
+    if (!mode || !goals || !inventory_list) {
+        return res.status(400).json({ error: 'Missing required fields: mode, goals, inventory_list' });
+    }
+    if (mode === 'meal' && !meal_type) {
+        return res.status(400).json({ error: 'Missing required field for meal mode: meal_type' });
+    }
+    if (!Array.isArray(inventory_list)) {
+        return res.status(400).json({ error: 'inventory_list must be an array' });
+    }
 
-  const inventoryString = inventory_list.map(item => `${item.name}${item.quantity ? ` (${item.quantity})` : ''}`).join(', ') || 'no items provided';
-  const dailyGoalString = `User's approximate daily goals: ${goals.calories || 'Not specified'} kcal, ${goals.protein || 'Not specified'}g protein.`;
-  let prompt = "";
-  let responseJsonStructure = "";
+    const inventoryString = inventory_list.map(item => `${item.name}${item.quantity ? ` (${item.quantity})` : ''}`).join(', ') || 'no items provided';
+    const dailyGoalString = `User's approximate daily goals: ${goals.calories || 'Not specified'} kcal, ${goals.protein || 'Not specified'}g protein.`;
+    let prompt = "";
+    let responseJsonStructure = "";
 
-  // --- Construct Prompt based on Mode ---
-  if (mode === 'meal') {
-      const mealGoalString = `Target for this specific meal: ${meal_calories || 'any'} kcal, ${meal_protein || 'any'}g protein.`;
-      responseJsonStructure = `
-      {
-        "meal_name": "Name of the suggested meal",
-        "estimated_calories": <number | null>, // Estimated calories for THIS meal
-        "estimated_protein": <number | null>, // Estimated protein (grams) for THIS meal
-        "recipe_steps": [ "Step 1...", "Step 2...", "..." ],
-        "can_generate": true | false // False if no sensible meal possible
-      }
-      `;
-      prompt = `
+    // --- Construct Prompt based on Mode ---
+    if (mode === 'meal') {
+        const mealGoalString = `Target for this specific meal: ${meal_calories || 'any'} kcal, ${meal_protein || 'any'}g protein.`;
+        responseJsonStructure = `{
+            "meal_name": "Name of the suggested meal",
+            "estimated_calories": <number | null>,
+            "estimated_protein": <number | null>,
+            "recipe_steps": [ "Step 1...", "Step 2...", "..." ],
+            "can_generate": true | false
+        }`;
+        prompt = `
 You are a helpful and creative meal planning assistant specializing in realistic and appealing recipes.
 Your task is to suggest ONE single, sensible meal recipe based primarily on the ingredients provided.
 
@@ -454,18 +452,16 @@ Your task is to suggest ONE single, sensible meal recipe based primarily on the 
 
 Generate the JSON output now.
 `;
-  } else if (mode === 'daily') {
-      responseJsonStructure = `
-      {
-        "breakfast": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
-        "lunch": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
-        "dinner": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
-        "snack1": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
-        "snack2": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
-        "can_generate": true | false, // False if inventory is insufficient for a full day plan
-        "generation_notes": "Optional notes, e.g., if goals couldn't be met exactly or inventory was limited."
-      }
-      `;
+    } else if (mode === 'daily') {
+        responseJsonStructure = `{
+            "breakfast": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "lunch": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "dinner": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "snack1": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "snack2": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "can_generate": true | false,
+            "generation_notes": "Optional notes, e.g., if goals couldn't be met exactly or inventory was limited."
+        }`;
       prompt = `
 You are a helpful and creative meal planning assistant specializing in realistic and appealing recipes.
 Your task is to generate a FULL DAY meal plan (Breakfast, Lunch, Dinner, 2 Snacks) aiming to meet the user's daily nutritional goals, using primarily the ingredients provided.
@@ -488,9 +484,9 @@ Your task is to generate a FULL DAY meal plan (Breakfast, Lunch, Dinner, 2 Snack
 
 Generate the JSON output now.
 `;
-  } else {
-      return res.status(400).json({ error: 'Invalid mode specified. Use "meal" or "daily".' });
-  }
+      } else {
+          return res.status(400).json({ error: 'Invalid mode specified. Use "meal" or "daily".' });
+      }
 
 
   console.log(`--- Sending Prompt to Google AI (Mode: ${mode}) ---`);
@@ -501,89 +497,34 @@ Generate the JSON output now.
     // Configuration for Gemini - Request JSON output and set safety settings
     const generationConfig = {
       temperature: 0.7,
-      // topK: 1, // Optional
-      // topP: 1, // Optional
-      // maxOutputTokens: 2048, // Optional
-      responseMimeType: "application/json", // Request JSON output directly
+      topP: 0.8,
+      topK: 40,
+      maxOutputTokens: 2000,
     };
 
     const safetySettings = [ // Adjust safety settings as needed
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+      {category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+      {category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+      {category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+      {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
     ];
 
     const result = await geminiModel.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig,
-        safetySettings,
+      contents: [{ role: "user", parts: [{ text: prompt }]}],
+      generationConfig,
+      safetySettings,
     });
 
-    console.log("--- Received Response from Google AI ---");
-    if (!result.response) {
-        console.error("Google AI response was missing.");
-        // Check for safety blocks
-        if (result.promptFeedback?.blockReason) {
-             console.error(`Blocked due to: ${result.promptFeedback.blockReason}`);
-             throw new Error(`Request blocked by safety settings: ${result.promptFeedback.blockReason}`);
+        if (!result || !result.candidates || result.candidates.length === 0) {
+            console.error("Gemini failed to return a candidate.");
+            return res.status(500).json({ error: 'Failed to generate meal plan. Gemini returned no result.' });
         }
-        throw new Error("Google AI response was empty or incomplete.");
-    }
 
-    const responseText = result.response.text(); // Gemini returns text directly when JSON is requested
-    console.log(responseText);
-    console.log("--------------------------------------");
-
-    // Attempt to parse the JSON response from the AI
-    let responseData; // Use a more generic name as structure varies
-    try {
-        // Gemini should return valid JSON directly when responseMimeType is set
-        mealData = JSON.parse(responseText);
-    } catch (parseError) {
-        console.error("Failed to parse Google AI JSON response:", parseError, responseText);
-        // Attempt to extract JSON if it's embedded in markdown ```json ... ``` (fallback)
-        const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch && jsonMatch[1]) {
-            try {
-                mealData = JSON.parse(jsonMatch[1]);
-                console.log("Successfully extracted and parsed JSON from markdown fallback.");
-            } catch (nestedParseError) {
-                console.error("Failed to parse extracted JSON:", nestedParseError);
-                throw new Error("AI response was not valid JSON, even after extraction.");
-            }
-        } else {
-            throw new Error("AI response was not valid JSON.");
-        }
-    }
-
-    // Check if the AI indicated it could generate a plan/meal
-    if (responseData.can_generate === false) {
-        console.log("AI indicated generation was not possible.");
-        // Send the failure structure back to the frontend
-        // For daily mode, we might just send the note, for meal mode, the meal_name explanation
-        return res.status(200).json({
-            ...responseData, // Include can_generate: false and potentially notes/meal_name
-            success: false, // Add a success flag for easier frontend handling
-            message: responseData.generation_notes || responseData.meal_name || "Could not generate plan/meal."
-        });
-    }
-
-    // Send the successful parsed data back to the frontend
-    // The structure depends on the mode ('meal' or 'daily')
     res.json({
-        ...responseData, // Contains meal_name/steps or the daily plan object
-        success: true,
-        mode: mode // Include the mode in the response for frontend logic
-     });
-
+      data: result.candidates[0].content.parts[0].text,
+    });
   } catch (error) {
-    console.error('Error calling Google AI API:', error);
-    res.status(500).json({ error: `Failed to generate meal suggestion from AI: ${error.message}` });
+    console.error("Gemini error:", error);
+    res.status(500).json({ error: 'Failed to generate meal plan' });
   }
-});
-
-// === Server Start ===
-app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}`);
 });

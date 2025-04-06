@@ -1,61 +1,37 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const mealNameEl = document.getElementById('recipe-meal-name');
-    const nutritionEl = document.getElementById('recipe-nutrition');
-    const stepsListEl = document.getElementById('recipe-steps-list');
+    const recipeNameEl = document.getElementById('recipe-name');
+    const recipeNutritionEl = document.getElementById('recipe-nutrition');
+    const recipeStepsEl = document.getElementById('recipe-steps');
 
-    // Retrieve the recipe data stored by dashboard.js
-    const recipeDataString = sessionStorage.getItem('currentRecipeData');
-    // Clear it immediately after retrieving so it's not stale on page refresh/back
-    sessionStorage.removeItem('currentRecipeData'); 
+    // Retrieve data from sessionStorage
+    const recipeData = JSON.parse(sessionStorage.getItem('currentRecipeData'));
 
-    if (!recipeDataString) {
-        console.error("No recipe data found in sessionStorage.");
-        mealNameEl.textContent = "Error";
-        nutritionEl.textContent = "";
-        stepsListEl.innerHTML = '<li>Could not load recipe details. Please go back to the dashboard and try again.</li>';
-        return;
-    }
+    if (recipeData) {
+        // Update recipe name
+        recipeNameEl.textContent = recipeData.meal_name || 'Recipe Name';
 
-    try {
-        const recipeData = JSON.parse(recipeDataString);
-        console.log("Loaded recipe data:", recipeData);
-
-        // Populate the page elements
-        mealNameEl.textContent = recipeData.meal_name || "Unnamed Recipe";
-
-        // Format nutrition string
-        let nutritionText = "";
-        if (recipeData.estimated_calories !== null || recipeData.estimated_protein !== null) {
-            if (recipeData.estimated_calories !== null) {
-                nutritionText += `Approx. Calories: ${recipeData.estimated_calories} kcal`;
-            }
-            if (recipeData.estimated_calories !== null && recipeData.estimated_protein !== null) {
-                nutritionText += ` | `; // Separator
-            }
-            if (recipeData.estimated_protein !== null) {
-                nutritionText += `Approx. Protein: ${recipeData.estimated_protein} g`;
-            }
-        } else {
-            nutritionText = "Nutrition information not available.";
+        // Update nutrition information
+        let nutritionText = '';
+        if (recipeData.estimated_calories !== null) {
+            nutritionText += `Calories: ${recipeData.estimated_calories} kcal`;
         }
-        nutritionEl.textContent = nutritionText;
+        if (recipeData.estimated_protein !== null) {
+            nutritionText += nutritionText ? ` | Protein: ${recipeData.estimated_protein} g` : `Protein: ${recipeData.estimated_protein} g`;
+        }
+        recipeNutritionEl.textContent = nutritionText || 'No nutrition info available';
 
-        // Populate recipe steps
-        stepsListEl.innerHTML = ''; // Clear loading message
-        if (recipeData.recipe_steps && Array.isArray(recipeData.recipe_steps) && recipeData.recipe_steps.length > 0) {
+        // Update recipe steps
+        recipeStepsEl.innerHTML = '';
+        if (recipeData.recipe_steps && Array.isArray(recipeData.recipe_steps)) {
             recipeData.recipe_steps.forEach(step => {
                 const li = document.createElement('li');
                 li.textContent = step;
-                stepsListEl.appendChild(li);
+                recipeStepsEl.appendChild(li);
             });
         } else {
-            stepsListEl.innerHTML = '<li>No recipe steps provided.</li>';
+            recipeStepsEl.textContent = 'No recipe steps provided.';
         }
-
-    } catch (error) {
-        console.error("Error parsing recipe data:", error);
-        mealNameEl.textContent = "Error";
-        nutritionEl.textContent = "";
-        stepsListEl.innerHTML = '<li>Could not load recipe details due to an error.</li>';
+    } else {
+        recipeNameEl.textContent = 'No recipe data found';
     }
 });

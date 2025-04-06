@@ -3,33 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recipe Details - Protein Protocol</title>
+    <title>Recipe - Protein Protocol</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="recipe.css"> <!-- Specific styles for this page -->
+    <link rel="stylesheet" href="recipe.css">
 </head>
-<body class="recipe-page">
-
+<body>
     <header>
         <a href="index.html" class="site-title">Protein Protocol</a>
         <div class="header-buttons">
             <button id="theme-toggle-button" title="Toggle theme">☀️</button>
             <a href="dashboard.html" class="header-button">Back to Dashboard</a>
-            <a href="index.html" class="header-button logout-button" id="logout-button">Logout</a>
         </div>
     </header>
 
     <main>
-        <h1 id="recipe-meal-name">Recipe Name</h1>
-        <p id="recipe-nutrition" class="meal-plan-nutrition">Approx. Nutrition Info</p>
-        
-        <h2>Instructions</h2>
-        <ol id="recipe-steps-list">
-            <!-- Steps will be loaded by JS -->
-            <li>Loading recipe...</li>
-        </ol>
-
-        <!-- Optional: Add feedback area if needed -->
-        <!-- <p class="feedback-message hidden" id="recipe-feedback"></p> -->
+        <div class="recipe-container">
+            <h1 id="recipe-name">Recipe Name</h1>
+            <p id="recipe-nutrition">Calories: ... kcal | Protein: ... g</p>
+            <ul id="recipe-steps">
+                <li>Step 1</li>
+                <li>Step 2</li>
+            </ul>
+        </div>
     </main>
 
     <footer>
@@ -42,22 +37,7 @@
             </nav>
         </div>
     </footer>
-
     <script src="recipe.js"></script>
     <script src="theme.js" defer></script>
-    <!-- Add logout functionality if needed, or rely on dashboard logout -->
-    <script>
-        // Basic logout for this page if user isn't going back to dashboard
-        const logoutBtn = document.getElementById('logout-button');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', (event) => {
-                event.preventDefault();
-                localStorage.removeItem('loggedInUserEmail');
-                localStorage.removeItem('loggedInUsername');
-                localStorage.removeItem('authToken');
-                window.location.href = 'index.html';
-            });
-        }
-    </script>
 </body>
 </html>

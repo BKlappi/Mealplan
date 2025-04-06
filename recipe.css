@@ -1,48 +1,27 @@
-/* recipe.css - Styles for the recipe detail page */
-
-.recipe-page main {
-    max-width: 800px; /* Or adjust as needed */
-    background-color: var(--bg-secondary);
-    padding: 30px 40px;
-    border-radius: 8px;
-    margin: 40px auto;
-    box-shadow: 0 4px 12px var(--shadow-color-darker);
-    border: 1px solid var(--border-primary);
+.recipe-container {
+    width: 80%;
+    margin: 20px auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
 }
 
-.recipe-page h1 {
-    color: var(--accent-primary);
-    margin-bottom: 10px;
-    text-align: center;
+#recipe-name {
+    color: #333;
 }
 
-.recipe-page h2 {
-    margin-top: 30px;
+#recipe-nutrition {
+    color: #666;
     margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-secondary);
-    color: var(--text-primary);
 }
 
-.recipe-page .meal-plan-nutrition { /* Reuse class from dashboard? */
-    text-align: center;
-    color: var(--text-secondary);
-    margin-bottom: 25px;
-    font-style: italic;
+#recipe-steps {
+    list-style: decimal;
+    padding-left: 20px;
 }
 
-#recipe-steps-list {
-    padding-left: 25px; /* Indent list */
-    list-style: decimal; /* Use numbers */
-}
-
-#recipe-steps-list li {
-    margin-bottom: 12px;
-    line-height: 1.6;
-    color: var(--text-primary);
-}
-
-/* Style for the back button in header if needed */
-.recipe-page header .header-button {
-    /* Add specific styles if different from other header buttons */
+#recipe-steps li {
+    margin-bottom: 10px;
+    color: #444;
 }
