@@ -454,17 +454,17 @@ async function handleGeneratePlan() {
 
         if (data.mode === 'meal' && data.can_generate) {
             // Display single meal result directly
-            let resultHtml = `<h4 class="meal-plan-title">${data.meal_name || 'Generated Meal'}</h4>`;
-            if (data.estimated_calories !== null || data.estimated_protein !== null) {
+            let resultHtml = `<h4 class="meal-plan-title">${data.data.meal_name || 'Generated Meal'}</h4>`;
+            if (data.data.estimated_calories !== null || data.data.estimated_protein !== null) {
                 resultHtml += `<p class="meal-plan-nutrition">`;
-                if (data.estimated_calories !== null) resultHtml += `Approx. Calories: ${data.estimated_calories} kcal`;
-                if (data.estimated_calories !== null && data.estimated_protein !== null) resultHtml += ` | `;
-                if (data.estimated_protein !== null) resultHtml += `Approx. Protein: ${data.estimated_protein} g`;
+                if (data.data.estimated_calories !== null) resultHtml += `Approx. Calories: ${data.data.estimated_calories} kcal`;
+                if (data.data.estimated_calories !== null && data.data.estimated_protein !== null) resultHtml += ` | `;
+                if (data.data.estimated_protein !== null) resultHtml += `Approx. Protein: ${data.data.estimated_protein} g`;
                 resultHtml += `</p>`;
             }
-            if (data.recipe_steps && Array.isArray(data.recipe_steps)) {
+            if (data.data.recipe_steps && Array.isArray(data.data.recipe_steps)) {
                 resultHtml += '<ul class="meal-plan-steps">';
-                data.recipe_steps.forEach(step => { resultHtml += `<li class="meal-item">${step}</li>`; });
+                data.data.recipe_steps.forEach(step => { resultHtml += `<li class="meal-item">${step}</li>`; });
                 resultHtml += '</ul>';
             } else {
                 resultHtml += '<p>No recipe steps provided.</p>';
@@ -482,7 +482,7 @@ async function handleGeneratePlan() {
             let planDataForStorage = {}; // Object to store data for recipe page
 
             mealTypes.forEach(mealKey => {
-                const meal = data[mealKey];
+                const meal = data.data[mealKey];
                 if (meal && meal.meal_name) {
                     const button = document.createElement('button');
                     button.textContent = `${mealKey.charAt(0).toUpperCase() + mealKey.slice(1)}: ${meal.meal_name}`;
