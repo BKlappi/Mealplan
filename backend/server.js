@@ -81,14 +81,14 @@ initializeDb().catch(err => console.error("Database initialization failed:", err
 // Ensure GOOGLE_API_KEY is set in your .env file
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 if (!GOOGLE_API_KEY) {
-  console.error("FATAL ERROR: GOOGLE_API_KEY is not defined in .env file. Cannot proceed.");
+  console.error("FATAL ERROR: GOOGLE_API_KEY is not defined in .env file. Cannot proceed securely.");
   process.exit(1); // Exit if key is missing
 }
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" }); // Or "gemini-pro" if 1.5 isn't needed/available
 
 const app = express();
-const port = process.env.PORT || 3001; // Use port 3001 or environment variable
+const port = 10000; // Use port 10000
 console.log("Server listening on port:", port);
 
 // === Middleware ===
@@ -140,7 +140,7 @@ app.post('/api/register', async (req, res) => {
     // Hash the password
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    // Insert user into the database (PostgreSQL uses $1, $2, etc. for parameters)
+    // Insert user into the database (PostgreSQL uses $1, $2, $3)
     // Use RETURNING id to get the new user's ID
     const sql = `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id`;
     const values = [username, email, password_hash];
@@ -436,7 +436,7 @@ Your task is to suggest ONE single, sensible meal recipe based primarily on the 
 **Task:** Generate a recipe for **${meal_type}**.
 
 **Constraints & Guidelines:**
-1.  **Prioritize Inventory:** Use ingredients from the 'Available Inventory' list. Do not use *all* items if not needed. Avoid meals requiring significant ingredients *not* listed.
+1.  **Prioritize Inventory:** Use ingredients from the 'Available Inventory' list. Do not use *all* items if not needed. Avoid meals requiring significant ingredients *not* listed. Distribute inventory usage logically across the day.
 2.  **Realism & Palatability:** Suggest common or reasonably creative dishes. Avoid absurd combinations. If inventory is unsuitable, indicate inability to generate.
 3.  **Specific Meal Goals:** Aim to meet the ${mealGoalString} AS CLOSELY AS POSSIBLE for this single meal. If achieving the exact targets isn't possible with a sensible recipe using the inventory, prioritize a sensible recipe and estimate its nutrition accurately. Clearly state if the targets couldn't be met precisely.
 4.  **Detailed Recipe:** Provide clear, step-by-step instructions.
@@ -528,4 +528,8 @@ Generate the JSON output now.
     console.error("Gemini error:", error);
     res.status(500).json({ error: 'Failed to generate meal plan' });
   }
+});
+
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
 });
