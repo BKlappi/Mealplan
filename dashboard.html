@@ -61,19 +61,19 @@
                     <div class="form-group mode-selection">
                         <label>Select Mode:</label>
                         <div>
-                            <input type="radio" id="mode-meal" name="generation-mode" value="meal" checked>
-                            <label for="mode-meal">Single Meal Goal</label>
+                            <input type="radio" id="mode-meal" name="generation-mode" value="meal" checked style="display: none;">
+                            <label for="mode-meal" class="custom-radio">Single Meal Goal</label>
                         </div>
                         <div>
-                            <input type="radio" id="mode-daily" name="generation-mode" value="daily">
-                            <label for="mode-daily">Full Daily Plan</label>
+                            <input type="radio" id="mode-daily" name="generation-mode" value="daily" style="display: none;">
+                            <label for="mode-daily" class="custom-radio">Full Daily Plan</label>
                         </div>
                     </div>
 
                     <!-- Meal Type Selection (Only for Single Meal Mode) -->
                     <div class="form-group" id="meal-type-group">
                         <label for="meal-type-select">Select Meal Type:</label>
-                        <select id="meal-type-select" name="mealType">
+                        <select id="meal-type-select" name="mealType" class="custom-select">
                             <option value="Breakfast">Breakfast</option>
                             <option value="Lunch">Lunch</option>
                             <option value="Dinner">Dinner</option>
