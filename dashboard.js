@@ -547,11 +547,94 @@ function attachStaticListeners() {
 }
 
 function initializeDashboard() {
+    handleImageUpload();
+    handleImageUpload();
     console.log("FUNC: initializeDashboard");
     attachStaticListeners();
     loadData(); // Load user data and render the dashboard
     handleModeChange(); // Initialize the mode
     console.log("initializeDashboard finished");
+}
+
+ // --- Image Upload Functionality ---
+ async function handleImageUpload() {
+    const imageUpload = document.getElementById('image-upload');
+    const scanImageBtn = document.getElementById('scan-image-btn');
+    const imageScanStatus = document.getElementById('image-scan-status');
+    const progressBar = document.querySelector('.progress-bar');
+    const progress = document.querySelector('.progress');
+
+    if (!imageUpload || !scanImageBtn || !imageScanStatus || !progressBar || !progress) {
+        console.error("Image upload elements missing!");
+        return;
+    }
+
+    // --- Camera Permission ---
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop()); // Release camera immediately
+    } catch (error) {
+        console.warn("Camera permission denied or not available. Suggesting phone switch.");
+        imageScanStatus.textContent = "Camera permission denied or not available. For best results, switch to your phone.";
+        imageScanStatus.classList.remove('hidden');
+    }
+
+    scanImageBtn.addEventListener('click', async () => {
+        const file = imageUpload.files[0];
+        if (!file) {
+            imageScanStatus.textContent = "Please select an image.";
+            imageScanStatus.classList.remove('hidden');
+            return;
+        }
+
+        // --- Progress Bar & Status Messages ---
+        progressBar.classList.remove('hidden');
+        imageScanStatus.textContent = "Scanning image...";
+        imageScanStatus.classList.remove('hidden');
+
+        // --- Backend Communication ---
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetchWithAuth(`${API_BASE_URL}/user/inventory/image`, {
+                method: 'POST',
+                body: formData,
+                // No need to set Content-Type, FormData does it automatically
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown server error' }));
+                throw new Error(`Image scan failed: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            }
+
+            const data = await response.json();
+            console.log("Image scan result:", data);
+
+            if (data.success && Array.isArray(data.items)) {
+                // --- Update Inventory with Recognized Items ---
+                // This is a placeholder. You'll need to implement the logic to:
+                // 1. Display the recognized items to the user with editable fields.
+                // 2. Allow the user to confirm/edit the items.
+                // 3. Send the updated inventory to the backend to be saved.
+                imageScanStatus.textContent = "Image scanned successfully. Please review and edit the recognized items.";
+                // Example: Display recognized items in the inventory list (replace with your actual implementation)
+                data.items.forEach(item => {
+                    currentInventory.push({ name: item.name, quantity: item.quantity || '' });
+                });
+                displayInventory();
+            } else {
+                imageScanStatus.textContent = data.message || "No items recognized or error processing image.";
+            }
+
+        } catch (error) {
+            console.error("Error scanning image:", error);
+            imageScanStatus.textContent = `Error scanning image: ${error.message}`;
+        } finally {
+            progressBar.classList.add('hidden');
+            progress.style.width = '0%';
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', initializeDashboard);

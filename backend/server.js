@@ -1,4 +1,5 @@
 // Load environment variables from .env file
+const fileUpload = require('express-fileupload');
 require('dotenv').config();
 
 const express = require('express');
@@ -95,6 +96,7 @@ console.log("Server listening on port:", port);
 // Enable CORS for all origins (adjust for production later if needed)
 app.use(cors());
 // Parse JSON request bodies
+app.use(fileUpload());
 app.use(express.json());
 
 
@@ -387,6 +389,186 @@ app.put('/api/user/inventory/:id', authenticateToken, async (req, res) => { // A
     } catch (err) {
         console.error("Database error updating inventory item:", err);
         return res.status(500).json({ success: false, message: 'Database error updating item.' });
+    }
+});
+
+// --- Image Upload Endpoint ---
+app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
+    console.log("Received image upload request");
+
+    // Check if an image was uploaded
+    if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ success: false, message: 'No image file uploaded.' });
+    }
+
+    const imageFile = req.files.image;
+
+    try {
+        // --- Call Gemini 1.5 Flash API ---
+        const prompt = `Analyze the image and identify the food items. Return a JSON array of objects with the item name and quantity (if available).
+        Example:
+        [
+            { "name": "apple", "quantity": "3" },
+            { "name": "banana" },
+            { "name": "milk", "quantity": "1 gallon" }
+        ]`;
+
+        const generationConfig = {
+            temperature: 0.4,
+            topP: 1,
+            topK: 32,
+            maxOutputTokens: 4096,
+        };
+
+        const safetySettings = [
+            {
+                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+        ];
+
+        const parts = [
+            { text: prompt },
+            {
+                inlineData: {
+                    mimeType: imageFile.mimetype,
+                    data: imageFile.data.toString('base64')
+                },
+            },
+        ];
+
+        const result = await geminiModel.generateContent({
+            contents: [{ role: "user", parts }],
+            generationConfig,
+            safetySettings,
+        });
+
+        const response = result.response;
+        console.log(response);
+        const text = response.candidates[0].content.parts[0].text;
+
+        // --- Process Gemini API Response ---
+        try {
+            const items = JSON.parse(text);
+            console.log("Parsed items:", items);
+            // Basic validation to ensure the parsed result is an array of objects with name properties
+            if (Array.isArray(items) && items.every(item => typeof item === 'object' && item !== null && typeof item.name === 'string')) {
+                return res.status(200).json({ success: true, message: 'Image scanned successfully.', items: items });
+            } else {
+                console.error("Gemini API returned invalid data:", items);
+                return res.status(500).json({ success: false, message: 'Gemini API returned invalid data.' });
+            }
+        } catch (parseError) {
+            console.error("Failed to parse Gemini API response:", parseError);
+            console.log("Gemini API response text:", text);
+            return res.status(500).json({ success: false, message: 'Failed to parse Gemini API response. Please ensure the API returns valid JSON.' });
+        }
+
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        return res.status(500).json({ success: false, message: `Error calling Gemini API: ${error.message}` });
+    }
+});
+
+// --- Image Upload Endpoint ---
+app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
+    console.log("Received image upload request");
+
+    // Check if an image was uploaded
+    if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ success: false, message: 'No image file uploaded.' });
+    }
+
+    const imageFile = req.files.image;
+
+    try {
+        // --- Call Gemini 1.5 Flash API ---
+        const prompt = `Analyze the image and identify the food items. Return a JSON array of objects with the item name and quantity (if available).
+        Example:
+        [
+            { "name": "apple", "quantity": "3" },
+            { "name": "banana" },
+            { "name": "milk", "quantity": "1 gallon" }
+        ]`;
+
+        const generationConfig = {
+            temperature: 0.4,
+            topP: 1,
+            topK: 32,
+            maxOutputTokens: 4096,
+        };
+
+        const safetySettings = [
+            {
+                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+        ];
+
+        const parts = [
+            { text: prompt },
+            {
+                inlineData: {
+                    mimeType: imageFile.mimetype,
+                    data: imageFile.data.toString('base64')
+                },
+            },
+        ];
+
+        const result = await geminiModel.generateContent({
+            contents: [{ role: "user", parts }],
+            generationConfig,
+            safetySettings,
+        });
+
+        const response = result.response;
+        console.log(response);
+        const text = response.candidates[0].content.parts[0].text;
+
+        // --- Process Gemini API Response ---
+        try {
+            const items = JSON.parse(text);
+            console.log("Parsed items:", items);
+            // Basic validation to ensure the parsed result is an array of objects with name properties
+            if (Array.isArray(items) && items.every(item => typeof item === 'object' && item !== null && typeof item.name === 'string')) {
+                return res.status(200).json({ success: true, message: 'Image scanned successfully.', items: items });
+            } else {
+                console.error("Gemini API returned invalid data:", items);
+                return res.status(500).json({ success: false, message: 'Gemini API returned invalid data.' });
+            }
+        } catch (parseError) {
+            console.error("Failed to parse Gemini API response:", parseError);
+            console.log("Gemini API response text:", text);
+            return res.status(500).json({ success: false, message: 'Failed to parse Gemini API response. Please ensure the API returns valid JSON.' });
+        }
+
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        return res.status(500).json({ success: false, message: `Error calling Gemini API: ${error.message}` });
     }
 });
 
