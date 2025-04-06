@@ -403,37 +403,43 @@ app.post('/api/generate-meal', async (req, res) => { // Make handler async
       return res.status(400).json({ error: 'inventory_list must be an array' });
   }
 
-  // Construct the prompt for the AI
-  const inventoryString = inventory_list.map(item => `${item.name}${item.quantity ? ` (${item.quantity})` : ''}`).join(', ') || 'nothing';
+  // Construct the prompt for the Gemini AI (Revised)
+  const inventoryString = inventory_list.map(item => `${item.name}${item.quantity ? ` (${item.quantity})` : ''}`).join(', ') || 'no items provided';
+  const goalString = `Approximate daily goals: ${goals.calories || 'Not specified'} kcal, ${goals.protein || 'Not specified'}g protein.`;
   const prompt = `
-You are a helpful meal planning assistant. Your task is to suggest a single meal recipe based *strictly* on the ingredients provided.
+You are a helpful and creative meal planning assistant specializing in realistic and appealing recipes.
+Your task is to suggest a single, sensible meal recipe based *primarily* on the ingredients provided in the inventory.
 
-**Constraints:**
-1.  **Use ONLY ingredients from the provided inventory list.** Do not suggest meals requiring ingredients not on the list. If no suitable meal can be made, indicate that clearly.
-2.  Suggest a meal appropriate for the requested meal type: **${meal_type}**.
-3.  Consider the user's daily goals (approximate): **${goals.calories || 'any'} kcal** and **${goals.protein || 'any'}g protein** for the whole day, but focus primarily on using the available ingredients for this single meal suggestion.
-4.  Provide the output ONLY in JSON format with the following structure:
+**Constraints & Guidelines:**
+1.  **Prioritize Inventory:** Use ingredients from the 'Available Inventory' list below. You do not need to use *all* items. Avoid suggesting meals that require significant ingredients *not* on the list.
+2.  **Meal Type:** The meal must be appropriate for the requested meal type: **${meal_type}**.
+3.  **Realism & Palatability:** Suggest common, recognizable, or reasonably creative dishes. Avoid absurd or unappetizing combinations (e.g., do not suggest soup made primarily from sausage water, even if listed). If the inventory is very limited or strange, it's better to indicate that no sensible meal can be made.
+4.  **Nutritional Goals:** Consider the user's ${goalString}. Estimate the approximate calories and protein content (in grams) for the *single suggested meal* and include these estimates in the output. Aim for reasonable alignment with daily goals where possible for a single meal, but prioritize using available ingredients sensibly.
+5.  **Detailed Recipe:** Provide clear, step-by-step instructions for preparing the meal. Be specific enough for someone to follow.
+6.  **JSON Output ONLY:** Provide the output *strictly* in the following JSON format. Do not include any text outside the JSON structure, including markdown formatting like \`\`\`.
     \`\`\`json
     {
       "meal_name": "Name of the suggested meal",
+      "estimated_calories": <number | null>, // Estimated calories for this meal, or null if unable to estimate
+      "estimated_protein": <number | null>, // Estimated protein (grams) for this meal, or null if unable to estimate
       "recipe_steps": [
-        "Step 1...",
-        "Step 2...",
+        "Step 1: Detailed instruction...",
+        "Step 2: Detailed instruction...",
         "..."
       ],
-      "can_generate": true | false // Set to false if no meal could be generated from inventory
+      "can_generate": true | false // Set to false if no sensible meal could be generated
     }
     \`\`\`
-5.  If you cannot generate a meal strictly using the provided ingredients, respond with JSON where "can_generate" is false and provide a brief explanation in "meal_name" (e.g., "Insufficient ingredients").
+7.  **If No Meal Possible:** If you cannot generate a sensible meal based on the inventory and constraints, respond with JSON where "can_generate" is false and provide a brief explanation in "meal_name" (e.g., "Insufficient ingredients for a sensible ${meal_type}"). Set calorie/protein estimates to null in this case.
 
 **Available Inventory:** ${inventoryString}
-
 **Requested Meal Type:** ${meal_type}
+**User Goals:** ${goalString}
 
 Generate the JSON output now.
 `;
 
-  console.log("--- Sending Prompt to OpenAI ---");
+  console.log("--- Sending Prompt to Google AI ---");
   console.log(prompt);
   console.log("-----------------------------");
 
@@ -478,10 +484,23 @@ Generate the JSON output now.
     // Attempt to parse the JSON response from the AI
     let mealData;
     try {
+        // Gemini should return valid JSON directly when responseMimeType is set
         mealData = JSON.parse(responseText);
     } catch (parseError) {
         console.error("Failed to parse Google AI JSON response:", parseError, responseText);
-        throw new Error("AI response was not valid JSON.");
+        // Attempt to extract JSON if it's embedded in markdown ```json ... ``` (fallback)
+        const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch && jsonMatch[1]) {
+            try {
+                mealData = JSON.parse(jsonMatch[1]);
+                console.log("Successfully extracted and parsed JSON from markdown fallback.");
+            } catch (nestedParseError) {
+                console.error("Failed to parse extracted JSON:", nestedParseError);
+                throw new Error("AI response was not valid JSON, even after extraction.");
+            }
+        } else {
+            throw new Error("AI response was not valid JSON.");
+        }
     }
 
     // Check if the AI indicated it could generate a meal
@@ -490,15 +509,19 @@ Generate the JSON output now.
         // Send a specific structure back to frontend for this case
         return res.status(200).json({
             meal_name: mealData.meal_name || "Could not generate meal",
+            estimated_calories: null,
+            estimated_protein: null,
             recipe_steps: ["Please check your inventory or try a different meal type."],
             can_generate: false
         });
     }
 
-    // Send the parsed meal data back to the frontend
+    // Send the parsed meal data back to the frontend, including new fields
     res.json({
         meal_name: mealData.meal_name || "Untitled Meal",
-        recipe_steps: mealData.recipe_steps || ["No recipe provided."],
+        estimated_calories: mealData.estimated_calories ?? null, // Use null if missing
+        estimated_protein: mealData.estimated_protein ?? null, // Use null if missing
+        recipe_steps: mealData.recipe_steps || ["No recipe steps provided."],
         can_generate: true
     });
 

@@ -410,8 +410,24 @@ async function handleRemoveItem(event) { // Make async
 
          // --- UI Update: Display Result ---
          let resultHtml = `<h4 class="meal-plan-title">${data.meal_name || 'Generated Meal'}</h4>`;
+
+         // Display estimated calories and protein if available
+         if (data.estimated_calories !== null || data.estimated_protein !== null) {
+             resultHtml += `<p class="meal-plan-nutrition">`;
+             if (data.estimated_calories !== null) {
+                 resultHtml += `Approx. Calories: ${data.estimated_calories} kcal`;
+             }
+             if (data.estimated_calories !== null && data.estimated_protein !== null) {
+                 resultHtml += ` | `; // Separator
+             }
+             if (data.estimated_protein !== null) {
+                 resultHtml += `Approx. Protein: ${data.estimated_protein} g`;
+             }
+             resultHtml += `</p>`;
+         }
+
          if (data.recipe_steps && Array.isArray(data.recipe_steps)) {
-             resultHtml += '<ul>';
+             resultHtml += '<ul class="meal-plan-steps">'; // Add class for potential styling
              data.recipe_steps.forEach(step => {
                  resultHtml += `<li class="meal-item">${step}</li>`; // Use meal-item class for potential styling
              });
