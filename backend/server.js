@@ -333,7 +333,7 @@ app.delete('/api/user/inventory/:id', authenticateToken, async (req, res) => { /
 
     try {
         const result = await pool.query(sql, values);
-        if (result.rowCount === 0) { // Check affected rows using rowCount
+        if (result.rowCount === 0) { // Check affected rows
             // No row was deleted - either item didn't exist or didn't belong to user
              console.log(`Attempt to delete non-existent or unauthorized item ID: ${itemId} for user ID: ${userId}`);
             return res.status(404).json({ success: false, message: 'Item not found or not authorized.' });
