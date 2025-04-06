@@ -187,7 +187,7 @@ function handleModeChange() {
         generateBtn.textContent = 'Generate Meal Idea';
         //mealPlanContent.innerHTML = '<p>Select meal type, optionally set specific goals, and generate.</p>'; // Reset content area
     } else { // daily mode
-        mealTypeGroup.classList.add('hidden');
+        mealTypeGroup.style.display = 'none';
         mealGoalInputs.classList.add('hidden');
         generateBtn.textContent = 'Generate Daily Plan';
         //mealPlanContent.innerHTML = '<p>Click button to generate a full day plan based on your daily goals and inventory.</p>'; // Reset content area
