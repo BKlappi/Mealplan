@@ -416,9 +416,13 @@ async function handleGeneratePlan() {
         const mealCaloriesInput = document.getElementById('meal-calories');
         const mealProteinInput = document.getElementById('meal-protein');
 
-        requestBody.meal_type = mealTypeSelectEl.value;
-        requestBody.meal_calories = mealCaloriesInput.value ? parseInt(mealCaloriesInput.value) : null;
-        requestBody.meal_protein = mealProteinInput.value ? parseInt(mealProteinInput.value) : null;
+        requestBody.meal_type = mealTypeSelectEl?.value;
+        requestBody.meal_calories = mealCaloriesInput?.value ? parseInt(mealCaloriesInput.value) : null;
+        requestBody.meal_protein = mealProteinInput?.value ? parseInt(mealProteinInput.value) : null;
+    } else {
+        requestBody.meal_type = null;
+        requestBody.meal_calories = null;
+        requestBody.meal_protein = null;
     }
 
     console.log(`Sending request to backend (Mode: ${selectedMode}) with body:`, requestBody);
