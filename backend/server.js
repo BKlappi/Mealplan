@@ -502,9 +502,7 @@ Generate the JSON output now.
     console.log(prompt);
     console.log("--------------------------------------------");
 
-    try {
-    // Configuration for Gemini - Request JSON output and set safety settings
-};
+    // Removed broken try block placeholder
 
 app.post('/api/generate-plan', authenticateToken, generatePlanHandler);
 app.post('/api/generate-meal', authenticateToken, generatePlanHandler);
