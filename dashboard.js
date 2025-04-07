@@ -428,53 +428,72 @@ async function handleGeneratePlan() {
     console.log(`Sending request to backend (Mode: ${selectedMode}) with body:`, requestBody);
 
     try {
-        // Use fetchWithAuth as this might become a protected endpoint later
-        const response = await fetchWithAuth(`${API_BASE_URL}/generate-meal`, {
+        // Use fetchWithAuth and the CORRECT endpoint: /generate-plan
+        const response = await fetchWithAuth(`${API_BASE_URL}/generate-plan`, {
             method: 'POST',
             body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Unknown server error' }));
-            throw new Error(`Network response was not ok: ${response.status} ${response.statusText} - ${errorData.message || errorData.error}`);
+            const errorData = await response.json().catch(() => ({ message: 'Unknown server error generating plan.' }));
+            throw new Error(`Network response was not ok: ${response.status} ${response.statusText} - ${errorData.message || errorData.error || 'Server error'}`);
         }
 
-        const data = await response.json();
-        console.log("Received data from backend:", data);
-        console.log("Received data from backend (stringified):", JSON.stringify(data));
+        const result = await response.json(); // Renamed to 'result' to avoid confusion with result.data
+        console.log("Received data from backend:", result);
 
-        if (!data.success) {
-            // Handle cases where the backend reports generation failure (e.g., can_generate: false)
-            showFeedback('meal-plan-feedback', data.message || 'Could not generate plan/meal.', 'error');
-            mealPlanContentEl.innerHTML = `<p>${data.message || 'Could not generate plan/meal.'}</p>`;
+        // Check the 'success' flag from the backend response
+        if (!result.success) {
+            // Handle cases where the backend reports generation failure (e.g., can_generate: false or parsing error)
+            // Use result.message or result.raw_data if available
+            const errorMessage = result.message || 'Could not generate plan/meal.';
+            showFeedback('meal-plan-feedback', errorMessage, 'error');
+            mealPlanContentEl.innerHTML = `<p>${errorMessage}</p>`;
+            if (result.raw_data) { // Display raw data if JSON parsing failed on backend
+                 mealPlanContentEl.innerHTML += `<pre>Raw AI Response:\n${result.raw_data}</pre>`;
+            }
             return; // Stop further processing
         }
 
-        // --- UI Update: Display Result ---
+        // --- UI Update: Display Result (using result.data which is the parsed JSON from AI) ---
         mealPlanContentEl.innerHTML = ''; // Clear loading message
+        const planData = result.data; // The actual meal plan data object
 
-        if (data.mode === 'meal' && data.can_generate) {
-            // Display single meal result directly
-            let resultHtml = `<h4 class="meal-plan-title">${data.data.meal_name || 'Generated Meal'}</h4>`;
-            if (data.data.estimated_calories !== null || data.data.estimated_protein !== null) {
+        // Check if the AI indicated it could generate a plan/meal
+        if (!planData || !planData.can_generate) {
+             const generationNote = planData?.generation_notes || planData?.meal_name || "AI indicated it could not generate a suitable plan/meal with the provided inventory/goals.";
+             showFeedback('meal-plan-feedback', generationNote, 'info');
+             mealPlanContentEl.innerHTML = `<p>${generationNote}</p>`;
+             return;
+        }
+
+        // Display based on the mode requested
+        if (selectedMode === 'meal') {
+            // Display single meal result
+            let resultHtml = `<h4 class="meal-plan-title">${planData.meal_name || 'Generated Meal'}</h4>`;
+            if (planData.estimated_calories !== null || planData.estimated_protein !== null) {
                 resultHtml += `<p class="meal-plan-nutrition">`;
-                if (data.data.estimated_calories !== null) resultHtml += `Approx. Calories: ${data.data.estimated_calories} kcal`;
-                if (data.data.estimated_calories !== null && data.data.estimated_protein !== null) resultHtml += ` | `;
-                if (data.data.estimated_protein !== null) resultHtml += `Approx. Protein: ${data.data.estimated_protein} g`;
+                if (planData.estimated_calories !== null) resultHtml += `Approx. Calories: ${planData.estimated_calories} kcal`;
+                if (planData.estimated_calories !== null && planData.estimated_protein !== null) resultHtml += ` | `;
+                if (planData.estimated_protein !== null) resultHtml += `Approx. Protein: ${planData.estimated_protein} g`;
                 resultHtml += `</p>`;
             }
-            if (data.data.recipe_steps && Array.isArray(data.data.recipe_steps)) {
+            if (planData.recipe_steps && Array.isArray(planData.recipe_steps)) {
                 resultHtml += '<ul class="meal-plan-steps">';
-                data.data.recipe_steps.forEach(step => { resultHtml += `<li class="meal-item">${step}</li>`; });
+                planData.recipe_steps.forEach(step => { resultHtml += `<li class="meal-item">${step}</li>`; });
                 resultHtml += '</ul>';
             } else {
                 resultHtml += '<p>No recipe steps provided.</p>';
             }
             mealPlanContentEl.innerHTML = resultHtml;
             showFeedback('meal-plan-feedback', 'Meal idea generated!', 'success');
-        } else if (data.mode === 'daily' && data.can_generate) {
+
+        } else if (selectedMode === 'daily') {
             // Display buttons for daily plan
             mealPlanContentEl.innerHTML = `<h4 class="meal-plan-title">Generated Daily Plan</h4>`;
+            if (planData.generation_notes) { // Display notes if provided
+                mealPlanContentEl.innerHTML += `<p><i>Note: ${planData.generation_notes}</i></p>`;
+            }
             const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack1', 'snack2'];
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'daily-plan-buttons'; // Add class for styling
@@ -482,10 +501,15 @@ async function handleGeneratePlan() {
             let planDataForStorage = {}; // Object to store data for recipe page
 
             mealTypes.forEach(mealKey => {
-                const meal = data.data[mealKey];
+                const meal = planData[mealKey]; // Access meals directly from planData
                 if (meal && meal.meal_name) {
                     const button = document.createElement('button');
-                    button.textContent = `${mealKey.charAt(0).toUpperCase() + mealKey.slice(1)}: ${meal.meal_name}`;
+                    // Display name and basic nutrition on button if available
+                    let buttonText = `${mealKey.charAt(0).toUpperCase() + mealKey.slice(1)}: ${meal.meal_name}`;
+                    if (meal.estimated_calories || meal.estimated_protein) {
+                        buttonText += ` (~${meal.estimated_calories || '?'}kcal / ${meal.estimated_protein || '?'}g P)`;
+                    }
+                    button.textContent = buttonText;
                     button.classList.add('submit-button', 'meal-plan-button'); // Style as needed
                     button.dataset.mealKey = mealKey; // Store key to identify meal
 
@@ -501,11 +525,19 @@ async function handleGeneratePlan() {
                         window.location.href = 'recipe.html'; // Navigate to recipe page
                     });
                     buttonContainer.appendChild(button);
+                } else {
+                     // Optionally indicate if a meal slot couldn't be filled
+                     console.log(`No meal generated for ${mealKey}`);
                 }
             });
 
-            mealPlanContentEl.appendChild(buttonContainer);
-            showFeedback('meal-plan-feedback', 'Daily plan generated!', 'success');
+            if (buttonContainer.children.length > 0) {
+                mealPlanContentEl.appendChild(buttonContainer);
+                showFeedback('meal-plan-feedback', 'Daily plan generated! Click a meal to view details.', 'success');
+            } else {
+                 mealPlanContentEl.innerHTML += '<p>Could not generate any meals for the daily plan.</p>';
+                 showFeedback('meal-plan-feedback', 'Could not generate any meals for the daily plan.', 'error');
+            }
         }
 
     } catch (error) {
@@ -547,94 +579,151 @@ function attachStaticListeners() {
 }
 
 function initializeDashboard() {
-    handleImageUpload();
-    handleImageUpload();
     console.log("FUNC: initializeDashboard");
-    attachStaticListeners();
+    attachStaticListeners(); // Attach listeners for static elements first
     loadData(); // Load user data and render the dashboard
     handleModeChange(); // Initialize the mode
+    // Listener for image upload button is attached separately now
     console.log("initializeDashboard finished");
 }
 
- // --- Image Upload Functionality ---
- async function handleImageUpload() {
-    const imageUpload = document.getElementById('image-upload');
-    const scanImageBtn = document.getElementById('scan-image-btn');
-    const imageScanStatus = document.getElementById('image-scan-status');
-    const progressBar = document.querySelector('.progress-bar');
-    const progress = document.querySelector('.progress');
+// --- Image Upload Functionality ---
+function setupImageUploadListener() {
+    console.log("FUNC: setupImageUploadListener");
+    // Use correct IDs from dashboard.html
+    const imageInput = document.getElementById('food-image-upload');
+    const uploadBtn = document.getElementById('upload-image-btn');
+    const uploadStatusEl = document.getElementById('upload-status');
+    const recognizedItemsListEl = document.getElementById('recognized-items-list');
 
-    if (!imageUpload || !scanImageBtn || !imageScanStatus || !progressBar || !progress) {
-        console.error("Image upload elements missing!");
+    if (!imageInput || !uploadBtn || !uploadStatusEl || !recognizedItemsListEl) {
+        console.error("Image upload elements missing! Cannot set up listener.");
         return;
     }
 
-    // --- Camera Permission ---
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        stream.getTracks().forEach(track => track.stop()); // Release camera immediately
-    } catch (error) {
-        console.warn("Camera permission denied or not available. Suggesting phone switch.");
-        imageScanStatus.textContent = "Camera permission denied or not available. For best results, switch to your phone.";
-        imageScanStatus.classList.remove('hidden');
-    }
-
-    scanImageBtn.addEventListener('click', async () => {
-        const file = imageUpload.files[0];
+    uploadBtn.addEventListener('click', async () => {
+        const file = imageInput.files[0];
         if (!file) {
-            imageScanStatus.textContent = "Please select an image.";
-            imageScanStatus.classList.remove('hidden');
+            uploadStatusEl.textContent = "Please select an image file first.";
+            uploadStatusEl.className = 'feedback-message error visible'; // Show error
             return;
         }
 
-        // --- Progress Bar & Status Messages ---
-        progressBar.classList.remove('hidden');
-        imageScanStatus.textContent = "Scanning image...";
-        imageScanStatus.classList.remove('hidden');
+        // Basic MIME type check on client-side for quick feedback
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedMimeTypes.includes(file.type)) {
+            uploadStatusEl.textContent = 'Invalid file type. Please upload JPEG, PNG, WEBP, or GIF.';
+            uploadStatusEl.className = 'feedback-message error visible';
+            imageInput.value = ''; // Clear the invalid file selection
+            return;
+        }
+
+
+        // --- UI Update: Show Loading State ---
+        uploadStatusEl.textContent = "Uploading and analyzing image...";
+        uploadStatusEl.className = 'feedback-message info visible'; // Show info
+        uploadBtn.disabled = true;
+        recognizedItemsListEl.innerHTML = ''; // Clear previous results
 
         // --- Backend Communication ---
         try {
             const formData = new FormData();
-            formData.append('image', file);
+            // Use the key expected by the backend ('foodImage')
+            formData.append('foodImage', file);
 
+            // Use fetchWithAuth for authenticated endpoint
             const response = await fetchWithAuth(`${API_BASE_URL}/user/inventory/image`, {
                 method: 'POST',
                 body: formData,
-                // No need to set Content-Type, FormData does it automatically
+                // fetchWithAuth handles Authorization header
+                // Content-Type is set automatically for FormData, but needs to be undefined here
+                // so the browser sets the correct boundary
+                headers: {
+                    'Content-Type': undefined
+                }
             });
 
+            // Check response status
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ message: 'Unknown server error' }));
-                throw new Error(`Image scan failed: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+                const errorData = await response.json().catch(() => ({ message: 'Unknown server error during image scan.' }));
+                throw new Error(`Image scan failed: ${response.status} ${response.statusText} - ${errorData.message || 'Server error'}`);
             }
 
             const data = await response.json();
             console.log("Image scan result:", data);
 
-            if (data.success && Array.isArray(data.items)) {
-                // --- Update Inventory with Recognized Items ---
-                // This is a placeholder. You'll need to implement the logic to:
-                // 1. Display the recognized items to the user with editable fields.
-                // 2. Allow the user to confirm/edit the items.
-                // 3. Send the updated inventory to the backend to be saved.
-                imageScanStatus.textContent = "Image scanned successfully. Please review and edit the recognized items.";
-                // Example: Display recognized items in the inventory list (replace with your actual implementation)
-                data.items.forEach(item => {
-                    currentInventory.push({ name: item.name, quantity: item.quantity || '' });
-                });
-                displayInventory();
+            // Use the correct response key: recognizedItems
+            if (data.success && Array.isArray(data.recognizedItems)) {
+                if (data.recognizedItems.length > 0) {
+                    uploadStatusEl.textContent = "Analysis complete. Click items below to add to your inventory form.";
+                    uploadStatusEl.className = 'feedback-message success visible';
+                    displayRecognizedItems(data.recognizedItems); // Call function to display items
+                } else {
+                    uploadStatusEl.textContent = "Analysis complete, but no distinct food items were recognized in the image.";
+                     uploadStatusEl.className = 'feedback-message info visible';
+                }
             } else {
-                imageScanStatus.textContent = data.message || "No items recognized or error processing image.";
+                // Handle backend reporting success: false or unexpected format
+                uploadStatusEl.textContent = data.message || "No items recognized or error processing image.";
+                uploadStatusEl.className = 'feedback-message error visible';
             }
 
         } catch (error) {
             console.error("Error scanning image:", error);
-            imageScanStatus.textContent = `Error scanning image: ${error.message}`;
+            uploadStatusEl.textContent = `Error: ${error.message}`;
+            uploadStatusEl.className = 'feedback-message error visible';
         } finally {
-            progressBar.classList.add('hidden');
-            progress.style.width = '0%';
+            // --- UI Update: End Loading State ---
+            uploadBtn.disabled = false;
+            imageInput.value = ''; // Clear the file input after processing
         }
+    });
+    console.log("--> Image upload listener attached.");
+}
+
+// --- Function to display recognized items and allow adding ---
+function displayRecognizedItems(items) {
+    const listEl = document.getElementById('recognized-items-list');
+    const nameInput = document.getElementById('item-name'); // Target inventory form input
+    listEl.innerHTML = ''; // Clear previous
+
+    if (!items || items.length === 0) {
+        listEl.innerHTML = '<li>No items recognized.</li>';
+        return;
+    }
+
+    items.forEach(itemName => {
+        const li = document.createElement('li');
+        li.className = 'recognized-item'; // Add class for styling
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = itemName;
+        li.appendChild(nameSpan);
+
+        const addButton = document.createElement('button');
+        addButton.textContent = 'Add';
+        addButton.classList.add('add-button', 'small-button'); // Style as needed
+        addButton.title = `Click to add '${itemName}' to your inventory form`;
+        addButton.addEventListener('click', () => {
+            // Populate the main inventory form with the clicked item name
+            nameInput.value = itemName;
+            document.getElementById('item-quantity').value = ''; // Clear quantity
+            resetInventoryForm(); // Ensure form is in 'Add' mode
+            nameInput.focus(); // Focus on the name input for potential edits/quantity add
+            // Optionally remove the item from the recognized list once clicked
+            // li.remove();
+            // Or provide feedback
+            showFeedback('inventory-feedback', `'${itemName}' copied to form. Add quantity if needed and click 'Add Item'.`, 'info', 5000);
+        });
+        li.appendChild(addButton);
+
+        listEl.appendChild(li);
     });
 }
 
-document.addEventListener('DOMContentLoaded', initializeDashboard);
+
+// --- Event Listener Setup ---
+document.addEventListener('DOMContentLoaded', () => {
+    initializeDashboard();
+    setupImageUploadListener(); // Set up the listener after the DOM is ready
+});

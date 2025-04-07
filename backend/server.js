@@ -395,7 +395,10 @@ app.put('/api/user/inventory/:id', authenticateToken, async (req, res) => { // A
 });
 
 // --- Meal Plan Generation Endpoint ---
-app.post('/api/generate-plan', authenticateToken, async (req, res) => {
+const generatePlanHandler = async (req, res) => {
+    console.log("=== Incoming generate-plan request ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+
     const {
         mode,
         meal_type,
@@ -407,12 +410,15 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
 
     // Basic validation
     if (!mode || !goals || !inventory_list) {
+        console.warn("Validation failed: missing required fields");
         return res.status(400).json({ error: 'Missing required fields: mode, goals, inventory_list' });
     }
     if (mode === 'meal' && !meal_type) {
+        console.warn("Validation failed: missing meal_type for meal mode");
         return res.status(400).json({ error: 'Missing required field for meal mode: meal_type' });
     }
     if (!Array.isArray(inventory_list)) {
+        console.warn("Validation failed: inventory_list not array");
         return res.status(400).json({ error: 'inventory_list must be an array' });
     }
 
@@ -488,16 +494,20 @@ Your task is to generate a FULL DAY meal plan (Breakfast, Lunch, Dinner, 2 Snack
 Generate the JSON output now.
 `;
       } else {
+          console.warn("Validation failed: invalid mode specified");
           return res.status(400).json({ error: 'Invalid mode specified. Use "meal" or "daily".' });
       }
 
+    console.log("--- Generated prompt to send to Google AI ---");
+    console.log(prompt);
+    console.log("--------------------------------------------");
 
-  console.log(`--- Sending Prompt to Google AI (Mode: ${mode}) ---`);
-  console.log(prompt);
-  console.log("-----------------------------");
-
-  try {
+    try {
     // Configuration for Gemini - Request JSON output and set safety settings
+};
+
+app.post('/api/generate-plan', authenticateToken, generatePlanHandler);
+app.post('/api/generate-meal', authenticateToken, generatePlanHandler);
     const generationConfig = {
       temperature: 0.7,
       topP: 0.8,
