@@ -461,9 +461,16 @@ async function handleGeneratePlan() {
 
         // Check if the AI indicated it could generate a plan/meal
         if (!planData || !planData.can_generate) {
-             const generationNote = planData?.generation_notes || planData?.meal_name || "AI indicated it could not generate a suitable plan/meal with the provided inventory/goals.";
-             showFeedback('meal-plan-feedback', generationNote, 'info');
-             mealPlanContentEl.innerHTML = `<p>${generationNote}</p>`;
+             if (planData?.success === true) {
+               const nutritionLine = `Calories: ${planData.calories}; Protein: ${planData.protein}g`;
+               const recipeText = planData.recipe || '';
+               showFeedback('meal-plan-feedback', 'Meal generated successfully!', 'success');
+               mealPlanContentEl.innerHTML = `<pre>${nutritionLine}\n\n${recipeText}</pre>`;
+             } else {
+               const generationNote = planData?.generation_notes || planData?.meal_name || "AI indicated it could not generate a suitable plan/meal with the provided inventory/goals.";
+               showFeedback('meal-plan-feedback', generationNote, 'info');
+               mealPlanContentEl.innerHTML = `<p>${generationNote}</p>`;
+             }
              return;
         }
 
