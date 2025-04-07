@@ -323,19 +323,23 @@ If impossible, set "can_generate": false and explain why in "generation_notes".
         const calMatch = nutritionLine.match(/Calories:\s*(\d+)/i);
         const proteinMatch = nutritionLine.match(/Protein:\s*(\d+)g/i);
 
-        const calories = calMatch ? parseInt(calMatch[1]) : null;
-        const protein = proteinMatch ? parseInt(proteinMatch[1]) : null;
+        const estimated_calories = calMatch ? parseInt(calMatch[1]) : null;
+        const estimated_protein = proteinMatch ? parseInt(proteinMatch[1]) : null;
 
         res.json({
           success: true,
-          calories,
-          protein,
-          recipe: recipeText
+          data: {
+            can_generate: true,
+            meal_name: "Generated Meal",
+            estimated_calories,
+            estimated_protein,
+            recipe: recipeText
+          }
         });
       } else if (responseText === "Insufficient Inventory for the wanted Goals") {
         res.json({
           success: false,
-          message: "Insufficient inventory to meet nutritional goals."
+          message: "Insufficient Inventory for the wanted Goals"
         });
       } else {
         res.json({
