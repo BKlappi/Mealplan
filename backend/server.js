@@ -503,73 +503,172 @@ Generate the JSON output now.
     console.log("--------------------------------------------");
 
     // Removed broken try block placeholder
+const generatePlanHandler = async (req, res) => {
+    console.log("=== Incoming generate-plan request ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
 
-app.post('/api/generate-plan', authenticateToken, generatePlanHandler);
-app.post('/api/generate-meal', authenticateToken, generatePlanHandler);
-    const generationConfig = {
-      temperature: 0.7,
-      topP: 0.8,
-      topK: 40,
-      maxOutputTokens: 2000,
-    };
+    const {
+        mode,
+        meal_type,
+        goals,
+        inventory_list,
+        meal_calories,
+        meal_protein
+    } = req.body;
 
-    const safetySettings = [ // Adjust safety settings as needed
-      {category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
-      {category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
-      {category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
-      {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
-    ];
-
-    const result = await geminiModel.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }]}],
-      generationConfig,
-      safetySettings,
-    });
-
-    // Updated check for Gemini 1.5 response structure
-    if (!result || !result.response || !result.response.candidates || result.response.candidates.length === 0 || !result.response.candidates[0].content || !result.response.candidates[0].content.parts || result.response.candidates[0].content.parts.length === 0 || !result.response.candidates[0].content.parts[0].text) {
-        console.error("Gemini failed to return a valid response structure for meal plan generation.", JSON.stringify(result, null, 2));
-        const feedback = result?.response?.promptFeedback;
-        const blockReason = feedback?.blockReason;
-        let message = 'AI failed to generate plan. No valid response content.';
-        if (blockReason) {
-            message = `AI generation blocked: ${blockReason}.`;
-        }
-        return res.status(500).json({ success: false, message: message });
+    // Basic validation
+    if (!mode || !goals || !inventory_list) {
+        console.warn("Validation failed: missing required fields");
+        return res.status(400).json({ error: 'Missing required fields: mode, goals, inventory_list' });
+    }
+    if (mode === 'meal' && !meal_type) {
+        console.warn("Validation failed: missing meal_type for meal mode");
+        return res.status(400).json({ error: 'Missing required field for meal mode: meal_type' });
+    }
+    if (!Array.isArray(inventory_list)) {
+        console.warn("Validation failed: inventory_list not array");
+        return res.status(400).json({ error: 'inventory_list must be an array' });
     }
 
-    const responseText = result.response.candidates[0].content.parts[0].text.trim();
-    console.log("--- Received raw meal plan response from Google AI ---");
-    console.log(responseText);
-    console.log("----------------------------------------------------");
+    const inventoryString = inventory_list.map(item => `${item.name}${item.quantity ? ` (${item.quantity})` : ''}`).join(', ') || 'no items provided';
+    const dailyGoalString = `User's approximate daily goals: ${goals.calories || 'Not specified'} kcal, ${goals.protein || 'Not specified'}g protein.`;
+    let prompt = "";
+    let responseJsonStructure = "";
 
-    // Attempt to parse the response as JSON
+    // --- Construct Prompt based on Mode ---
+    if (mode === 'meal') {
+        const mealGoalString = `Target for this specific meal: ${meal_calories || 'any'} kcal, ${meal_protein || 'any'}g protein.`;
+        responseJsonStructure = `{
+            "meal_name": "Name of the suggested meal",
+            "estimated_calories": <number | null>,
+            "estimated_protein": <number | null>,
+            "recipe_steps": [ "Step 1...", "Step 2...", "..." ],
+            "can_generate": true | false
+        }`;
+        prompt = `
+You are a helpful and creative meal planning assistant specializing in realistic and appealing recipes.
+Your task is to suggest ONE single, sensible meal recipe based primarily on the ingredients provided.
+
+**Task:** Generate a recipe for **${meal_type}**.
+
+**Constraints & Guidelines:**
+1.  **Prioritize Inventory:** Use ingredients from the 'Available Inventory' list. Do not use *all* items if not needed. Avoid meals requiring significant ingredients *not* listed. Distribute inventory usage logically across the day.
+2.  **Realism & Palatability:** Suggest common or reasonably creative dishes. Avoid absurd combinations. If inventory is unsuitable, indicate inability to generate.
+3.  **Specific Meal Goals:** Aim to meet the ${mealGoalString} AS CLOSELY AS POSSIBLE for this single meal. If achieving the exact targets isn't possible with a sensible recipe using the inventory, prioritize a sensible recipe and estimate its nutrition accurately. Clearly state if the targets couldn't be met precisely.
+4.  **Detailed Recipe:** Provide clear, step-by-step instructions.
+5.  **JSON Output ONLY:** Provide the output *strictly* in the following JSON format. Do not include any text outside the JSON structure.
+    \`\`\`json
+    ${responseJsonStructure}
+    \`\`\`
+6.  **If No Meal Possible:** Respond with JSON where "can_generate" is false and "meal_name" explains why (e.g., "Insufficient ingredients for a sensible ${meal_type} meeting goals"). Set estimates to null.
+
+**Available Inventory:** ${inventoryString}
+**Requested Meal Type:** ${meal_type}
+**Target Meal Nutrition:** ${mealGoalString}
+**Reference Daily Goals:** ${dailyGoalString}
+
+Generate the JSON output now.
+`;
+    } else if (mode === 'daily') {
+        responseJsonStructure = `{
+            "breakfast": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "lunch": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "dinner": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "snack1": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "snack2": { "meal_name": "...", "estimated_calories": <num|null>, "estimated_protein": <num|null>, "recipe_steps": [...] },
+            "can_generate": true | false,
+            "generation_notes": "Optional notes, e.g., if goals couldn't be met exactly or inventory was limited."
+        }`;
+      prompt = `
+You are a helpful and creative meal planning assistant specializing in realistic and appealing recipes.
+Your task is to generate a FULL DAY meal plan (Breakfast, Lunch, Dinner, 2 Snacks) aiming to meet the user's daily nutritional goals, using primarily the ingredients provided.
+
+**Task:** Generate a full day's meal plan (5 meals).
+
+**Constraints & Guidelines:**
+1.  **Prioritize Inventory:** Use ingredients from the 'Available Inventory' list. You do not need to use *all* items. Avoid meals requiring significant ingredients *not* listed. Distribute inventory usage logically across the day.
+2.  **Daily Goals:** Aim for the *total* calories and protein across all 5 meals to be as close as possible to the ${dailyGoalString}.
+3.  **Realism & Palatability:** Suggest common or reasonably creative dishes for each meal slot. Avoid absurd combinations.
+4.  **Individual Meal Estimates:** For EACH of the 5 meals (breakfast, lunch, dinner, snack1, snack2), provide the meal name, estimated calories, estimated protein (grams), and detailed recipe steps.
+5.  **JSON Output ONLY:** Provide the output *strictly* in the following JSON format. Do not include any text outside the JSON structure.
+    \`\`\`json
+    ${responseJsonStructure}
+    \`\`\`
+6.  **If No Full Plan Possible:** If the inventory is insufficient to create a sensible full-day plan meeting the approximate goals, respond with JSON where "can_generate" is false and add a note in "generation_notes" explaining why (e.g., "Insufficient inventory for a full day plan").
+
+**Available Inventory:** ${inventoryString}
+**Target Daily Goals:** ${dailyGoalString}
+
+Generate the JSON output now.
+`;
+      } else {
+          console.warn("Validation failed: invalid mode specified");
+          return res.status(400).json({ error: 'Invalid mode specified. Use "meal" or "daily".' });
+      }
+
+    console.log("--- Generated prompt to send to Google AI ---");
+    console.log(prompt);
+    console.log("--------------------------------------------");
+
     try {
-        // Clean the response text - remove potential markdown backticks if AI included them
-        const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
-        const planJson = JSON.parse(cleanedText);
-        console.log("Successfully parsed meal plan JSON.");
-        res.status(200).json({ success: true, data: planJson }); // Send parsed JSON
-    } catch (parseError) {
-        console.error("Failed to parse meal plan response as JSON:", parseError, "Raw response:", responseText);
-        // Send the raw text as a fallback, but flag it
-        res.status(200).json({
-            success: false, // Indicate parsing failed
-            message: "AI generated a plan, but it wasn't valid JSON. Displaying raw text.",
-            raw_data: responseText
-        });
-    }
+        const generationConfig = {
+            temperature: 0.7,
+            topP: 0.8,
+            topK: 40,
+            maxOutputTokens: 2000,
+        };
 
-  } catch (error) {
-    console.error("Error during meal plan generation:", error);
-     // Check for specific Gemini errors if possible
-    if (error.response && error.response.promptFeedback) {
-        console.error("Gemini prompt feedback:", error.response.promptFeedback);
-         return res.status(400).json({ success: false, message: `AI processing failed: ${error.response.promptFeedback.blockReason || 'Safety block or other issue'}` });
+        const safetySettings = [
+            {category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+            {category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+            {category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+            {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+        ];
+
+        const result = await geminiModel.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }]}],
+            generationConfig,
+            safetySettings,
+        });
+
+        if (!result || !result.response || !result.response.candidates || result.response.candidates.length === 0 || !result.response.candidates[0].content || !result.response.candidates[0].content.parts || result.response.candidates[0].content.parts.length === 0 || !result.response.candidates[0].content.parts[0].text) {
+            console.error("Gemini failed to return a valid response structure for meal plan generation.", JSON.stringify(result, null, 2));
+            const feedback = result?.response?.promptFeedback;
+            const blockReason = feedback?.blockReason;
+            let message = 'AI failed to generate plan. No valid response content.';
+            if (blockReason) {
+                message = `AI generation blocked: ${blockReason}.`;
+            }
+            return res.status(500).json({ success: false, message: message });
+        }
+
+        const responseText = result.response.candidates[0].content.parts[0].text.trim();
+        console.log("--- Received raw meal plan response from Google AI ---");
+        console.log(responseText);
+        console.log("----------------------------------------------------");
+
+        try {
+            const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
+            const planJson = JSON.parse(cleanedText);
+            console.log("Successfully parsed meal plan JSON.");
+            res.status(200).json({ success: true, data: planJson });
+        } catch (parseError) {
+            console.error("Failed to parse meal plan response as JSON:", parseError, "Raw response:", responseText);
+            res.status(200).json({
+                success: false,
+                message: "AI generated a plan, but it wasn't valid JSON. Displaying raw text.",
+                raw_data: responseText
+            });
+        }
+    } catch (error) {
+        console.error("Error during meal plan generation:", error);
+        if (error.response && error.response.promptFeedback) {
+            console.error("Gemini prompt feedback:", error.response.promptFeedback);
+            return res.status(400).json({ success: false, message: `AI processing failed: ${error.response.promptFeedback.blockReason || 'Safety block or other issue'}` });
+        }
+        res.status(500).json({ success: false, message: 'Server error during meal plan generation.' });
     }
-    res.status(500).json({ success: false, message: 'Server error during meal plan generation.' });
-  }
-});
+};
 
 
 // --- Helper function to convert image buffer to Gemini Part ---
