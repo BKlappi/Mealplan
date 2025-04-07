@@ -242,23 +242,31 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
 
   if (mode === 'meal') {
     const mealGoalString = `Target for this specific meal: ${meal_calories || 'any'} kcal, ${meal_protein || 'any'}g protein.`;
-    responseJsonStructure = `{
-      "meal_name": "Name of the suggested meal",
-      "estimated_calories": <number | null>,
-      "estimated_protein": <number | null>,
-      "recipe_steps": ["Step 1...", "Step 2...", "..."],
-      "can_generate": true | false
-    }`;
+
     prompt = `
-You are a helpful and creative meal planning assistant.
-Generate a sensible ${meal_type} recipe using primarily these ingredients: ${inventoryString}.
-Aim for: ${mealGoalString}
-Daily goals: ${dailyGoalString}
-Respond ONLY with JSON in this format:
-\`\`\`json
-${responseJsonStructure}
-\`\`\`
-If impossible, set "can_generate": false and explain why in "meal_name".
+You are a meal planning assistant.
+
+Your task:
+- Generate ONE specific, sensible, commonly known meal recipe.
+- Use ONLY ingredients from this list: ${inventoryString}.
+- Do NOT use all ingredients; select only what is necessary.
+- Prioritize known, tasty meals (e.g., "Chicken Stir-fry", "Rice Bowl").
+- ONLY if impossible, create a simple, logical combination as a fallback.
+- Estimate calories and protein accurately.
+
+Targets:
+- Calories: ${meal_calories} ±100
+- Protein: ${meal_protein}g ±15
+
+Output:
+- If a suitable meal is possible, respond with:
+Calories: [Calculated Calories]; Protein: [Calculated Protein]g
+[Detailed recipe: ingredients with quantities, then step-by-step instructions]
+
+- If impossible within tolerances, respond with:
+Insufficient Inventory for the wanted Goals
+
+No other text.
 `;
   } else if (mode === 'daily') {
     responseJsonStructure = `{
@@ -305,12 +313,45 @@ If impossible, set "can_generate": false and explain why in "generation_notes".
     });
 
     const responseText = result.response.candidates[0].content.parts[0].text.trim();
-    const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
-    try {
-      const planJson = JSON.parse(cleanedText);
-      res.json({ success: true, data: planJson });
-    } catch {
-      res.json({ success: false, message: "AI response was not valid JSON.", raw_data: responseText });
+
+    if (mode === 'meal') {
+      if (responseText.startsWith("Calories:")) {
+        const firstLineEnd = responseText.indexOf('\n');
+        const nutritionLine = responseText.substring(0, firstLineEnd).trim();
+        const recipeText = responseText.substring(firstLineEnd + 1).trim();
+
+        const calMatch = nutritionLine.match(/Calories:\s*(\d+)/i);
+        const proteinMatch = nutritionLine.match(/Protein:\s*(\d+)g/i);
+
+        const calories = calMatch ? parseInt(calMatch[1]) : null;
+        const protein = proteinMatch ? parseInt(proteinMatch[1]) : null;
+
+        res.json({
+          success: true,
+          calories,
+          protein,
+          recipe: recipeText
+        });
+      } else if (responseText === "Insufficient Inventory for the wanted Goals") {
+        res.json({
+          success: false,
+          message: "Insufficient inventory to meet nutritional goals."
+        });
+      } else {
+        res.json({
+          success: false,
+          message: "Unexpected AI response format.",
+          raw_data: responseText
+        });
+      }
+    } else {
+      const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
+      try {
+        const planJson = JSON.parse(cleanedText);
+        res.json({ success: true, data: planJson });
+      } catch {
+        res.json({ success: false, message: "AI response was not valid JSON.", raw_data: responseText });
+      }
     }
   } catch (error) {
     console.error(error);
