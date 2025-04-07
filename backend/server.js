@@ -259,11 +259,15 @@ Targets:
 - Protein: ${meal_protein}g ±15
 
 Output:
-- If a suitable meal is possible, respond with:
+- If a suitable meal is possible, respond in **exactly** this format:
+
 Calories: [Calculated Calories]; Protein: [Calculated Protein]g
 Meal Name: [Name of the meal, or a descriptive title if no standard name exists]
 Recipe:
-[Detailed, step-by-step instructions, including ingredient quantities and preparation steps]
+1. Step one...
+2. Step two...
+3. Step three...
+(and so on)
 
 - If impossible within tolerances, respond with:
 Insufficient Inventory for the wanted Goals
