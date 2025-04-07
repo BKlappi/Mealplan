@@ -86,11 +86,13 @@ if (!GOOGLE_API_KEY) {
   process.exit(1); // Exit if key is missing
 }
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
-const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" }); // Or "gemini-pro" if 1.5 isn't needed/available
+
+// Initialize separate models for each task using gemini-1.5-flash
+const mealPlannerModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const foodRecognitionModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 const app = express();
-const port = 10000; // Use port 10000
-console.log("Server listening on port:", port);
+const port = process.env.PORT || 10000; // Use PORT from environment or default to 10000 for flexibility
 
 // === Middleware ===
 // Enable CORS for all origins (adjust for production later if needed)
@@ -516,17 +518,48 @@ Generate the JSON output now.
       safetySettings,
     });
 
-        if (!result || !result.candidates || result.candidates.length === 0) {
-            console.error("Gemini failed to return a candidate.");
-            return res.status(500).json({ error: 'Failed to generate meal plan. Gemini returned no result.' });
+    // Updated check for Gemini 1.5 response structure
+    if (!result || !result.response || !result.response.candidates || result.response.candidates.length === 0 || !result.response.candidates[0].content || !result.response.candidates[0].content.parts || result.response.candidates[0].content.parts.length === 0 || !result.response.candidates[0].content.parts[0].text) {
+        console.error("Gemini failed to return a valid response structure for meal plan generation.", JSON.stringify(result, null, 2));
+        const feedback = result?.response?.promptFeedback;
+        const blockReason = feedback?.blockReason;
+        let message = 'AI failed to generate plan. No valid response content.';
+        if (blockReason) {
+            message = `AI generation blocked: ${blockReason}.`;
         }
+        return res.status(500).json({ success: false, message: message });
+    }
 
-    res.json({
-      data: result.candidates[0].content.parts[0].text,
-    });
+    const responseText = result.response.candidates[0].content.parts[0].text.trim();
+    console.log("--- Received raw meal plan response from Google AI ---");
+    console.log(responseText);
+    console.log("----------------------------------------------------");
+
+    // Attempt to parse the response as JSON
+    try {
+        // Clean the response text - remove potential markdown backticks if AI included them
+        const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
+        const planJson = JSON.parse(cleanedText);
+        console.log("Successfully parsed meal plan JSON.");
+        res.status(200).json({ success: true, data: planJson }); // Send parsed JSON
+    } catch (parseError) {
+        console.error("Failed to parse meal plan response as JSON:", parseError, "Raw response:", responseText);
+        // Send the raw text as a fallback, but flag it
+        res.status(200).json({
+            success: false, // Indicate parsing failed
+            message: "AI generated a plan, but it wasn't valid JSON. Displaying raw text.",
+            raw_data: responseText
+        });
+    }
+
   } catch (error) {
-    console.error("Gemini error:", error);
-    res.status(500).json({ error: 'Failed to generate meal plan' });
+    console.error("Error during meal plan generation:", error);
+     // Check for specific Gemini errors if possible
+    if (error.response && error.response.promptFeedback) {
+        console.error("Gemini prompt feedback:", error.response.promptFeedback);
+         return res.status(400).json({ success: false, message: `AI processing failed: ${error.response.promptFeedback.blockReason || 'Safety block or other issue'}` });
+    }
+    res.status(500).json({ success: false, message: 'Server error during meal plan generation.' });
   }
 });
 
@@ -560,17 +593,19 @@ app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
   try {
     const imagePart = fileToGenerativePart(foodImageFile.data, foodImageFile.mimetype);
 
+    // --- Refined Prompt for Food Recognition ---
     const prompt = `
-Analyze the provided image, which likely contains various food items (e.g., in a fridge, pantry, or on a countertop).
-Identify each distinct food item visible.
+Analyze the provided image. Your task is to identify ONLY the distinct edible food items visible.
+Ignore any non-food items completely (e.g., containers unless they clearly indicate the food type like 'Milk Carton', shelves, backgrounds, people, objects like chairs, tables, appliances).
+Focus solely on identifying things that are meant to be eaten.
 Return the results ONLY as a JSON array of strings, where each string is the name of a recognized food item.
-Example format: ["Apples", "Milk Carton", "Eggs", "Spinach Bag"]
-If no food items are clearly identifiable, return an empty array [].
-Do not include quantities or any other information, just the item names.
+Example format: ["Apples", "Milk Carton", "Eggs", "Spinach Bag", "Cooked Chicken Breast", "Broccoli Florets"]
+If no edible food items are clearly identifiable, return an empty array [].
+Do not include quantities, packaging details (unless part of the name like 'Milk Carton'), or any other information, just the food item names.
 Provide ONLY the JSON array, no other text before or after it.
 `;
 
-    // Configuration for Gemini - Adjust as needed for image tasks
+    // Configuration for Gemini - Adjust as needed for image tasks (using gemini-1.5-flash)
     const generationConfig = {
       temperature: 0.4, // Lower temperature might be better for identification
       topP: 0.8,
@@ -585,10 +620,10 @@ Provide ONLY the JSON array, no other text before or after it.
       {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
     ];
 
-    console.log("--- Sending image and prompt to Google AI for food recognition ---");
+    console.log("--- Sending image and prompt to Google AI (gemini-1.5-flash) for food recognition ---");
 
-    // Use the same geminiModel instance
-    const result = await geminiModel.generateContent({
+    // Use the specific foodRecognitionModel instance
+    const result = await foodRecognitionModel.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }, imagePart]}], // Combine text prompt and image
         generationConfig,
         safetySettings,
@@ -640,12 +675,11 @@ Provide ONLY the JSON array, no other text before or after it.
     }
 
     // Return the list of recognized items to the frontend
-    // The frontend will then allow the user to edit/confirm and add quantities
-    // before sending back to /api/user/inventory to actually save them.
     res.status(200).json({ success: true, recognizedItems: recognizedItems });
 
   } catch (error) {
-    console.error("Error during food recognition:", error);
+    // Log the full error object for better debugging
+    console.error("Error during food recognition:", error.message, error.stack, error.response ? JSON.stringify(error.response) : '');
     // Check for specific Gemini errors if possible (e.g., safety blocks in the error object itself)
     if (error.response && error.response.promptFeedback) {
         console.error("Gemini prompt feedback:", error.response.promptFeedback);
@@ -659,6 +693,7 @@ Provide ONLY the JSON array, no other text before or after it.
 
 
 // === Start Server ===
-app.listen(port, () => { // Use the port variable defined earlier
+app.listen(port, () => {
+  // Log only when the server is actually listening
   console.log(`Server listening on port ${port}`);
 });
