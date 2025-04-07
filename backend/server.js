@@ -261,7 +261,9 @@ Targets:
 Output:
 - If a suitable meal is possible, respond with:
 Calories: [Calculated Calories]; Protein: [Calculated Protein]g
-[Detailed recipe: ingredients with quantities, then step-by-step instructions]
+Meal Name: [Name of the meal, or a descriptive title if no standard name exists]
+Recipe:
+[Detailed, step-by-step instructions, including ingredient quantities and preparation steps]
 
 - If impossible within tolerances, respond with:
 Insufficient Inventory for the wanted Goals
