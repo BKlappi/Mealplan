@@ -42,22 +42,21 @@
 
                 <!-- == Inventory Section START == -->
                 <section class="dashboard-section inventory">
-                    <h2>Your Inventory</h2>
+                    <h2>Scan Inventory from Image</h2>
+                    <div id="image-upload-section">
+                        <input type="file" id="food-image-upload" accept="image/*">
+                        <button id="upload-image-btn">Upload Image</button>
+                        <div id="upload-status"></div>
+                        <ul id="recognized-items-list"></ul>
+                    </div>
+
+                    <h2>Current Inventory</h2>
                     <ul id="inventory-list"> <!-- Loaded by JS --> </ul>
                     <form id="add-inventory-form">
                         <div class="form-group"> <label for="item-name">Item Name:</label> <input type="text" id="item-name" name="itemName" required placeholder="e.g., Chicken Breast"> </div>
                         <div class="form-group"> <label for="item-quantity">Quantity:</label> <input type="text" id="item-quantity" name="itemQuantity" placeholder="e.g., 500g (optional)"> </div>
                         <button type="submit" class="add-button" id="add-update-inventory-btn">Add Item</button>
                     </form>
-                    <div class="form-group">
-                        <label for="image-upload">Upload Image:</label>
-                        <input type="file" id="image-upload" name="imageUpload" accept="image/*">
-                        <button type="button" id="scan-image-btn">Scan Image</button>
-                    </div>
-                    <div class="progress-bar hidden">
-                        <div class="progress"></div>
-                    </div>
-                    <p class="status-message hidden" id="image-scan-status"></p>
                     <p class="feedback-message hidden" id="inventory-feedback"></p> <!-- Updated class -->
                 </section>
                 <!-- == Inventory Section END == -->

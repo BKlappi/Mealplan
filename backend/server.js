@@ -392,190 +392,8 @@ app.put('/api/user/inventory/:id', authenticateToken, async (req, res) => { // A
     }
 });
 
-// --- Image Upload Endpoint ---
-app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
-    console.log("Received image upload request");
-
-    // Check if an image was uploaded
-    if (!req.files || Object.keys(req.files).length === 0) {
-        return res.status(400).json({ success: false, message: 'No image file uploaded.' });
-    }
-
-    const imageFile = req.files.image;
-
-    try {
-        // --- Call Gemini 1.5 Flash API ---
-        const prompt = `Analyze the image and identify the food items. Return a JSON array of objects with the item name and quantity (if available).
-        Example:
-        [
-            { "name": "apple", "quantity": "3" },
-            { "name": "banana" },
-            { "name": "milk", "quantity": "1 gallon" }
-        ]`;
-
-        const generationConfig = {
-            temperature: 0.4,
-            topP: 1,
-            topK: 32,
-            maxOutputTokens: 4096,
-        };
-
-        const safetySettings = [
-            {
-                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-        ];
-
-        const parts = [
-            { text: prompt },
-            {
-                inlineData: {
-                    mimeType: imageFile.mimetype,
-                    data: imageFile.data.toString('base64')
-                },
-            },
-        ];
-
-        const result = await geminiModel.generateContent({
-            contents: [{ role: "user", parts }],
-            generationConfig,
-            safetySettings,
-        });
-
-        const response = result.response;
-        console.log(response);
-        const text = response.candidates[0].content.parts[0].text;
-
-        // --- Process Gemini API Response ---
-        try {
-            const items = JSON.parse(text);
-            console.log("Parsed items:", items);
-            // Basic validation to ensure the parsed result is an array of objects with name properties
-            if (Array.isArray(items) && items.every(item => typeof item === 'object' && item !== null && typeof item.name === 'string')) {
-                return res.status(200).json({ success: true, message: 'Image scanned successfully.', items: items });
-            } else {
-                console.error("Gemini API returned invalid data:", items);
-                return res.status(500).json({ success: false, message: 'Gemini API returned invalid data.' });
-            }
-        } catch (parseError) {
-            console.error("Failed to parse Gemini API response:", parseError);
-            console.log("Gemini API response text:", text);
-            return res.status(500).json({ success: false, message: 'Failed to parse Gemini API response. Please ensure the API returns valid JSON.' });
-        }
-
-    } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        return res.status(500).json({ success: false, message: `Error calling Gemini API: ${error.message}` });
-    }
-});
-
-// --- Image Upload Endpoint ---
-app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
-    console.log("Received image upload request");
-
-    // Check if an image was uploaded
-    if (!req.files || Object.keys(req.files).length === 0) {
-        return res.status(400).json({ success: false, message: 'No image file uploaded.' });
-    }
-
-    const imageFile = req.files.image;
-
-    try {
-        // --- Call Gemini 1.5 Flash API ---
-        const prompt = `Analyze the image and identify the food items. Return a JSON array of objects with the item name and quantity (if available).
-        Example:
-        [
-            { "name": "apple", "quantity": "3" },
-            { "name": "banana" },
-            { "name": "milk", "quantity": "1 gallon" }
-        ]`;
-
-        const generationConfig = {
-            temperature: 0.4,
-            topP: 1,
-            topK: 32,
-            maxOutputTokens: 4096,
-        };
-
-        const safetySettings = [
-            {
-                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-        ];
-
-        const parts = [
-            { text: prompt },
-            {
-                inlineData: {
-                    mimeType: imageFile.mimetype,
-                    data: imageFile.data.toString('base64')
-                },
-            },
-        ];
-
-        const result = await geminiModel.generateContent({
-            contents: [{ role: "user", parts }],
-            generationConfig,
-            safetySettings,
-        });
-
-        const response = result.response;
-        console.log(response);
-        const text = response.candidates[0].content.parts[0].text;
-
-        // --- Process Gemini API Response ---
-        try {
-            const items = JSON.parse(text);
-            console.log("Parsed items:", items);
-            // Basic validation to ensure the parsed result is an array of objects with name properties
-            if (Array.isArray(items) && items.every(item => typeof item === 'object' && item !== null && typeof item.name === 'string')) {
-                return res.status(200).json({ success: true, message: 'Image scanned successfully.', items: items });
-            } else {
-                console.error("Gemini API returned invalid data:", items);
-                return res.status(500).json({ success: false, message: 'Gemini API returned invalid data.' });
-            }
-        } catch (parseError) {
-            console.error("Failed to parse Gemini API response:", parseError);
-            console.log("Gemini API response text:", text);
-            return res.status(500).json({ success: false, message: 'Failed to parse Gemini API response. Please ensure the API returns valid JSON.' });
-        }
-
-    } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        return res.status(500).json({ success: false, message: `Error calling Gemini API: ${error.message}` });
-    }
-});
-
-
-// --- Meal Generation Endpoint (Revised for Modes) ---
-app.post('/api/generate-meal', async (req, res) => {
-    console.log("Received generation request body:", req.body);
+// --- Meal Plan Generation Endpoint ---
+app.post('/api/generate-plan', authenticateToken, async (req, res) => {
     const {
         mode,
         meal_type,
@@ -712,6 +530,135 @@ Generate the JSON output now.
   }
 });
 
-app.listen(10000, () => {
-  console.log(`Server listening on port 10000`);
+
+// --- Helper function to convert image buffer to Gemini Part ---
+function fileToGenerativePart(buffer, mimeType) {
+  return {
+    inlineData: {
+      data: buffer.toString("base64"),
+      mimeType
+    },
+  };
+}
+
+// --- Food Recognition from Image Endpoint ---
+app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
+  if (!req.files || Object.keys(req.files).length === 0 || !req.files.foodImage) {
+    return res.status(400).json({ success: false, message: 'No image file uploaded.' });
+  }
+
+  const foodImageFile = req.files.foodImage;
+
+  // Validate MIME type (allow common image types)
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if (!allowedMimeTypes.includes(foodImageFile.mimetype)) {
+      return res.status(400).json({ success: false, message: 'Invalid file type. Please upload an image (JPEG, PNG, WEBP, GIF).' });
+  }
+
+  console.log(`Received image for food recognition: ${foodImageFile.name}, size: ${foodImageFile.size}, type: ${foodImageFile.mimetype}`);
+
+  try {
+    const imagePart = fileToGenerativePart(foodImageFile.data, foodImageFile.mimetype);
+
+    const prompt = `
+Analyze the provided image, which likely contains various food items (e.g., in a fridge, pantry, or on a countertop).
+Identify each distinct food item visible.
+Return the results ONLY as a JSON array of strings, where each string is the name of a recognized food item.
+Example format: ["Apples", "Milk Carton", "Eggs", "Spinach Bag"]
+If no food items are clearly identifiable, return an empty array [].
+Do not include quantities or any other information, just the item names.
+Provide ONLY the JSON array, no other text before or after it.
+`;
+
+    // Configuration for Gemini - Adjust as needed for image tasks
+    const generationConfig = {
+      temperature: 0.4, // Lower temperature might be better for identification
+      topP: 0.8,
+      topK: 40,
+      maxOutputTokens: 1024, // Adjust if needed
+    };
+
+     const safetySettings = [ // Reusing safety settings
+      {category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+      {category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+      {category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+      {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE},
+    ];
+
+    console.log("--- Sending image and prompt to Google AI for food recognition ---");
+
+    // Use the same geminiModel instance
+    const result = await geminiModel.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }, imagePart]}], // Combine text prompt and image
+        generationConfig,
+        safetySettings,
+    });
+
+     // Updated check for Gemini 1.5 response structure
+     if (!result || !result.response || !result.response.candidates || result.response.candidates.length === 0 || !result.response.candidates[0].content || !result.response.candidates[0].content.parts || result.response.candidates[0].content.parts.length === 0 || !result.response.candidates[0].content.parts[0].text) {
+        console.error("Gemini failed to return a valid response structure for image recognition.", JSON.stringify(result, null, 2)); // Log the full result for debugging
+        // Check for safety feedback
+        const feedback = result?.response?.promptFeedback;
+        const blockReason = feedback?.blockReason;
+        const safetyRatings = feedback?.safetyRatings;
+        console.error("Safety Feedback:", JSON.stringify(feedback, null, 2));
+        let message = 'AI failed to process the image. No valid response content.';
+        if (blockReason) {
+            message = `AI processing blocked: ${blockReason}.`;
+            if (safetyRatings) {
+                message += ` Details: ${JSON.stringify(safetyRatings)}`;
+            }
+        }
+        return res.status(500).json({ success: false, message: message });
+    }
+
+
+    const responseText = result.response.candidates[0].content.parts[0].text.trim();
+    console.log("--- Received raw response from Google AI ---");
+    console.log(responseText);
+    console.log("------------------------------------------");
+
+    // Attempt to parse the response as JSON
+    let recognizedItems = [];
+    try {
+        // Clean the response text - remove potential markdown backticks if AI included them
+        const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
+        recognizedItems = JSON.parse(cleanedText);
+        if (!Array.isArray(recognizedItems) || !recognizedItems.every(item => typeof item === 'string')) {
+             console.error("Gemini response was not a valid JSON array of strings:", cleanedText);
+             throw new Error("Invalid JSON format received from AI.");
+        }
+         console.log("Successfully parsed recognized items:", recognizedItems);
+    } catch (parseError) {
+        console.error("Failed to parse Gemini response as JSON array:", parseError, "Raw response:", responseText);
+        // Fallback: Try to extract lines if JSON parsing fails completely (less reliable)
+        recognizedItems = responseText.split('\n').map(s => s.trim()).filter(s => s.length > 0 && !s.startsWith('```')); // Avoid backticks in fallback
+         console.warn("Falling back to line splitting for recognized items:", recognizedItems);
+         if (recognizedItems.length === 0) {
+            return res.status(500).json({ success: false, message: 'AI response could not be parsed. Please try again.' });
+         }
+    }
+
+    // Return the list of recognized items to the frontend
+    // The frontend will then allow the user to edit/confirm and add quantities
+    // before sending back to /api/user/inventory to actually save them.
+    res.status(200).json({ success: true, recognizedItems: recognizedItems });
+
+  } catch (error) {
+    console.error("Error during food recognition:", error);
+    // Check for specific Gemini errors if possible (e.g., safety blocks in the error object itself)
+    if (error.response && error.response.promptFeedback) {
+        console.error("Gemini prompt feedback:", error.response.promptFeedback);
+         return res.status(400).json({ success: false, message: `AI processing failed: ${error.response.promptFeedback.blockReason || 'Safety block or other issue'}` });
+    }
+    // Log the generic error as well
+    console.error("Generic server error during recognition:", error.message, error.stack);
+    res.status(500).json({ success: false, message: 'Server error during image recognition.' });
+  }
+});
+
+
+// === Start Server ===
+app.listen(port, () => { // Use the port variable defined earlier
+  console.log(`Server listening on port ${port}`);
 });
