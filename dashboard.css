@@ -1,192 +1,42 @@
-/* Professional Dark Theme Dashboard */
-
-body.dashboard-page {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: "Segoe UI", Roboto, sans-serif;
-  margin: 0;
-  padding: 0;
+/* Hide native file input */
+.custom-file-input {
+  display: none;
 }
 
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
-  max-width: 1200px;
-  margin: 30px auto;
-  padding: 0 20px;
-}
-
-.dashboard-section {
-  background-color: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 4px 12px var(--shadow-color-dark);
-  border: 1px solid var(--border-primary);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.dashboard-section:hover {
-  box-shadow: 0 6px 18px var(--shadow-color-darker);
-}
-
-h1 {
-  font-size: 28px;
-  margin-bottom: 20px;
-}
-
-h2 {
-  font-size: 22px;
-  margin-bottom: 15px;
-}
-
-h3 {
-  font-size: 18px;
-  margin-bottom: 10px;
-}
-
-label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 500;
-}
-
-input[type="text"],
-input[type="number"],
-input[type="email"],
-input[type="password"],
-select {
-  width: 100%;
-  background-color: var(--input-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  padding: 10px 12px;
-  font-size: 15px;
-  margin-bottom: 15px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-input:focus,
-select:focus {
-  outline: none;
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 6px var(--input-focus-shadow);
-}
-
-button,
-input[type="submit"],
-input[type="button"] {
+/* Styled button for file input */
+.custom-file-label {
+  display: inline-block;
   background-color: var(--accent-primary);
   color: var(--text-inverted);
-  border: none;
   padding: 10px 16px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 15px;
   font-weight: 500;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: background-color 0.2s ease;
+  margin-bottom: 10px;
 }
 
-button:hover,
-input[type="submit"]:hover,
-input[type="button"]:hover {
+.custom-file-label:hover {
   background-color: var(--accent-primary-hover);
 }
 
-button:active,
-input[type="submit"]:active,
-input[type="button"]:active {
-  transform: scale(0.97);
-}
-
-button:disabled,
-input[type="submit"]:disabled,
-input[type="button"]:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-ul {
-  list-style-type: disc;
-  padding-left: 20px;
-  margin-bottom: 15px;
-}
-
-.item-buttons {
-  margin-top: 8px;
-}
-
-.item-buttons button {
-  margin-right: 8px;
-  margin-top: 6px;
-}
-
-.daily-plan-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 15px;
-}
-
-.daily-plan-buttons button {
-  flex: 1 1 45%;
-}
-
-.meal-plan-title {
-  margin-top: 20px;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.meal-plan-nutrition {
-  margin: 12px 0;
-}
-
-.meal-plan-steps {
-  margin: 12px 0;
-  padding-left: 20px;
-}
-
-.meal-plan-steps li {
-  margin-bottom: 6px;
-}
-
-.meal-plan-recipe {
+/* Ingredient pill/card style */
+#inventory-list li {
   background-color: var(--bg-tertiary);
-  color: var(--text-primary);
-  padding: 14px 18px;
-  border-radius: 10px;
-  font-size: 15px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  margin-top: 12px;
-  margin-bottom: 12px;
-  box-shadow: 0 0 10px var(--shadow-color-dark);
+  padding: 10px 14px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 6px var(--shadow-color-dark);
 }
 
-.feedback-message {
-  margin-top: 12px;
-  padding: 12px 15px;
-  border-radius: 6px;
-  font-size: 14px;
+#inventory-list li .item-buttons {
+  margin-top: 0;
 }
 
-.feedback-message.success {
-  background-color: rgba(40, 167, 69, 0.2);
-  color: #28a745;
-}
-
-.feedback-message.error {
-  background-color: rgba(220, 53, 69, 0.2);
-  color: #dc3545;
-}
-
-.feedback-message.info {
-  background-color: rgba(23, 162, 184, 0.2);
-  color: #17a2b8;
-}
-
-.hidden {
-  display: none;
+#inventory-list li button {
+  margin-left: 6px;
 }
