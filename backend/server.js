@@ -319,22 +319,40 @@ If impossible, set "can_generate": false and explain why in "generation_notes".
     });
 
     const responseText = result.response.candidates[0].content.parts[0].text.trim();
-    console.log("Raw AI Meal Response:", responseText); // Temporary logging for debugging
+    console.log("Raw AI Meal Response:", responseText);
 
     if (mode === 'meal') {
       if (responseText.startsWith("Calories:")) {
         const firstLineEnd = responseText.indexOf('\n');
         const nutritionLine = responseText.substring(0, firstLineEnd).trim();
         const remainingText = responseText.substring(firstLineEnd + 1).trim();
-        
-        // Extract meal name
+
         const mealNameMatch = remainingText.match(/Meal Name:\s*(.+?)(?=\n|$)/i);
         const meal_name = mealNameMatch ? mealNameMatch[1].trim() : "Generated Meal";
-        
-        // Extract recipe
-        const recipeMatch = remainingText.match(/Recipe:\s*\n([\s\S]+)$/i);
-        const recipe = recipeMatch ? recipeMatch[1].trim() : remainingText;
-        
+
+        // Robustly extract recipe section line-by-line
+        const lines = remainingText.split('\n');
+        let foundRecipeMarker = false;
+        const recipeLines = [];
+        for (let line of lines) {
+          if (foundRecipeMarker) {
+            const trimmed = line.trim();
+            if (trimmed.length > 0) {
+              recipeLines.push(trimmed);
+            }
+          } else {
+            if (line.trim().toLowerCase().startsWith('recipe:')) {
+              foundRecipeMarker = true;
+            }
+          }
+        }
+        let recipe = '';
+        if (foundRecipeMarker) {
+          recipe = recipeLines.join('\n').trim();
+        } else {
+          recipe = '';
+        }
+
         const calMatch = nutritionLine.match(/Calories:\s*(\d+)/i);
         const proteinMatch = nutritionLine.match(/Protein:\s*(\d+)g/i);
 
@@ -345,10 +363,10 @@ If impossible, set "can_generate": false and explain why in "generation_notes".
           success: true,
           data: {
             can_generate: true,
-            meal_name: meal_name,
+            meal_name,
             estimated_calories,
             estimated_protein,
-            recipe: recipe
+            recipe
           }
         });
       } else if (responseText === "Insufficient Inventory for the wanted Goals") {
@@ -376,6 +394,19 @@ If impossible, set "can_generate": false and explain why in "generation_notes".
     console.error(error);
     res.status(500).json({ success: false, message: 'Error generating plan.' });
   }
+});
+
+app.post('/api/generate-meal', authenticateToken, async (req, res) => {
+  req.body.mode = 'meal';
+  const fakeNext = () => {};
+  await (async (req, res, next) => {
+    try {
+      await app._router.stack.find(r => r.route && r.route.path === '/api/generate-plan').route.stack[1].handle(req, res, next);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ success: false, message: 'Error forwarding to generate-plan.' });
+    }
+  })(req, res, fakeNext);
 });
 
 function fileToGenerativePart(buffer, mimeType) {
