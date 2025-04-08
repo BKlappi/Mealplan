@@ -319,13 +319,22 @@ If impossible, set "can_generate": false and explain why in "generation_notes".
     });
 
     const responseText = result.response.candidates[0].content.parts[0].text.trim();
+    console.log("Raw AI Meal Response:", responseText); // Temporary logging for debugging
 
     if (mode === 'meal') {
       if (responseText.startsWith("Calories:")) {
         const firstLineEnd = responseText.indexOf('\n');
         const nutritionLine = responseText.substring(0, firstLineEnd).trim();
-        const recipeText = responseText.substring(firstLineEnd + 1).trim();
-
+        const remainingText = responseText.substring(firstLineEnd + 1).trim();
+        
+        // Extract meal name
+        const mealNameMatch = remainingText.match(/Meal Name:\s*(.+?)(?=\n|$)/i);
+        const meal_name = mealNameMatch ? mealNameMatch[1].trim() : "Generated Meal";
+        
+        // Extract recipe
+        const recipeMatch = remainingText.match(/Recipe:\s*\n([\s\S]+)$/i);
+        const recipe = recipeMatch ? recipeMatch[1].trim() : remainingText;
+        
         const calMatch = nutritionLine.match(/Calories:\s*(\d+)/i);
         const proteinMatch = nutritionLine.match(/Protein:\s*(\d+)g/i);
 
@@ -336,10 +345,10 @@ If impossible, set "can_generate": false and explain why in "generation_notes".
           success: true,
           data: {
             can_generate: true,
-            meal_name: "Generated Meal",
+            meal_name: meal_name,
             estimated_calories,
             estimated_protein,
-            recipe: recipeText
+            recipe: recipe
           }
         });
       } else if (responseText === "Insufficient Inventory for the wanted Goals") {
