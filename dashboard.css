@@ -223,13 +223,16 @@ ul {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 60px;
   box-shadow: 0 2px 6px var(--shadow-color-dark);
 }
 
 #inventory-list li .item-buttons {
+  display: flex;
+  gap: 8px;
   margin-top: 0;
 }
 
 #inventory-list li button {
-  margin-left: 6px;
+  margin-left: 0;
 }
