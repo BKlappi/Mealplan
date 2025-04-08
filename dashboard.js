@@ -489,6 +489,8 @@ async function handleGeneratePlan() {
                 resultHtml += '<ul class="meal-plan-steps">';
                 planData.recipe_steps.forEach(step => { resultHtml += `<li class="meal-item">${step}</li>`; });
                 resultHtml += '</ul>';
+            } else if (planData.recipe) {
+                resultHtml += `<pre>${planData.recipe}</pre>`;
             } else {
                 resultHtml += '<p>No recipe steps provided.</p>';
             }
