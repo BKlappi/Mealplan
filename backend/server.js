@@ -300,10 +300,10 @@ If impossible, set "can_generate": false and explain why in "generation_notes".
 
   try {
     const generationConfig = {
-      temperature: 0.7,
-      topP: 0.8,
-      topK: 40,
-      maxOutputTokens: 2000,
+      temperature: 0.4,
+      topP: 0.9,
+      topK: 20,
+      maxOutputTokens: 1024,
     };
     const safetySettings = [
       { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
@@ -437,9 +437,9 @@ If none, return [].
 `;
 
     const generationConfig = {
-      temperature: 0.4,
-      topP: 0.8,
-      topK: 40,
+      temperature: 0.7,
+      topP: 0.9,
+      topK: 20,
       maxOutputTokens: 1024,
     };
     const safetySettings = [

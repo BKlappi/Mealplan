@@ -1,120 +1,13 @@
-/* dashboard.css - Styles specific to the dashboard.html */
-
-/* dashboard.css - Styles specific to the dashboard.html */
-
-/* Use variables from style.css */
-
-/* === Header Styles === */
-.user-greeting { color: var(--text-primary); margin-right: 15px; font-weight: 500; }
-.logout-button { background-color: transparent; border-color: var(--text-secondary); color: var(--text-secondary); }
-.logout-button:hover { background-color: var(--shadow-color-light); color: var(--text-primary); border-color: var(--text-primary); }
-
-/* ===== Main Content Styling ===== */
-
-/* --- SPA View Styling Removed --- */
-
-
-/* Container for the main dashboard elements */
-#dashboard-main-content { display: block; /* Default state */ }
-#dashboard-main-content h1 { text-align: center; color: var(--text-primary); font-size: 2em; font-weight: 600; margin-bottom: 50px; }
-.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 35px; padding-bottom: 60px; }
-
-/* === Section Styling === */
-.dashboard-section { background-color: var(--bg-secondary); padding: 20px; border-radius: 8px; box-shadow: 0 3px 8px var(--shadow-color-dark); transition: background-color 0.3s ease, border-color 0.3s ease; display: flex; flex-direction: column; }
-.dashboard-section h2 { color: var(--accent-primary); margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-secondary); font-size: 1.5em; font-weight: 500; transition: border-color 0.3s ease; }
-.dashboard-section p, .dashboard-section ul { margin-bottom: 12px; font-size: 1.05em; color: var(--text-primary); }
-
-/* === Form & List Styles === */
-.hidden { display: none; }
-#goals-form, #add-inventory-form { margin-top: 25px; padding-top: 25px; border-top: 1px solid var(--border-primary); transition: border-color 0.3s ease; }
-.form-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-.form-group label { font-weight: 500; font-size: 0.9em; color: var(--text-secondary); }
-.form-group input[type="text"], .form-group input[type="number"] { padding: 12px 15px; border-radius: 5px; border: 1px solid var(--input-border); background-color: var(--input-bg); color: var(--text-primary); font-size: 1em; transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.3s ease, color 0.3s ease; }
-.form-group input:focus { outline: none; border-color: var(--input-focus-border); box-shadow: 0 0 0 3px var(--input-focus-shadow); }
-
-/* === Specific Sections === */
-/* Goals */
-.goals h2 { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.goals .edit-button { font-size: 0.8em; padding: 5px 10px; } /* Uses base button */
-.goals .save-button, .goals .cancel-button { padding: 8px 16px; } /* Uses base buttons */
-.goals .save-button { margin-right: 8px; }
-#goals-display span { font-weight: 600; color: var(--text-primary); background-color: var(--accent-primary-bg-hover-light); padding: 2px 5px; border-radius: 4px; display: inline-block; transition: background-color 0.3s ease, color 0.3s ease; }
-
-/* Inventory */
-.inventory ul { padding-left: 0; list-style: none; margin-top: 10px; flex-grow: 1; }
-#inventory-list li { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; margin-bottom: 10px; border-left: 4px solid var(--accent-primary); background-color: var(--list-item-bg); border-radius: 0 5px 5px 0; transition: background-color 0.2s ease, border-color 0.3s ease; flex-wrap: wrap; gap: 10px; }
-#inventory-list li:hover { background-color: var(--list-item-hover-bg); }
-.item-buttons { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
-.edit-item-button { background-color: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); padding: 4px 8px; font-size: 0.8em; border-radius: 4px; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
-.edit-item-button:hover { background-color: var(--accent-primary-bg-hover-light); border-color: var(--accent-primary); color: var(--accent-primary); }
-#inventory-list .remove-button { margin-left: 0; background-color: transparent; border: 1px solid var(--border-secondary); color: var(--text-secondary); padding: 4px 8px; font-size: 0.8em; border-radius: 4px; cursor:pointer; }
-#inventory-list .remove-button:hover { background-color: var(--danger-color); border-color: var(--danger-border); color: var(--text-inverted); box-shadow: 0 1px 3px var(--danger-shadow); }
-#add-inventory-form .add-button { width: 100%; padding: 12px 15px; font-size: 1.05em; margin-top: 10px; } /* Targets button with id 'add-update-inventory-btn' now */
-#add-update-inventory-btn.update-mode { background-color: #f39c12; border-color: #e67e22; color: #fff; }
-#add-update-inventory-btn.update-mode:hover { background-color: #e67e22; border-color: #d35400; }
-
-/* Meal Plan */
-.meal-plan #meal-plan-content { flex-grow: 1; padding-top: 0; min-height: 50px; }
-.meal-plan-title { color: var(--accent-primary); font-weight: 600; margin-bottom: 15px; font-size: 1.1em; }
-.meal-item { padding: 8px 0; border-bottom: 1px dashed var(--border-secondary); color: var(--text-primary); font-size: 1em; }
-.meal-item:last-of-type { border-bottom: none; }
-.meal-item strong { color: var(--text-secondary); margin-right: 8px; display: inline-block; min-width: 80px; }
-.meal-plan #meal-plan-content hr { border: 0; height: 1px; background-color: var(--border-primary); margin: 20px 0; }
-.meal-totals { font-weight: 600; font-size: 1.1em; color: var(--text-primary); margin-top: 15px; }
-.meal-totals strong { color: var(--accent-primary); }
-.meal-note { font-size: 0.8em; color: var(--text-secondary); margin-top: 15px; font-style: italic; }
-.meal-plan .submit-button { margin-top: 20px; width: 100%; padding: 12px 15px; font-size: 1.05em; }
-
-/* Feedback Area */
-.feedback { padding: 10px 15px; margin-top: 15px; border-radius: 4px; font-size: 0.9em; border: 1px solid transparent; transition: opacity 0.3s ease; }
-.feedback.success { background-color: rgba(46, 204, 113, 0.1); color: #2ecc71; border-color: #2ecc71; }
-
-/* Custom Radio Buttons */
-.custom-radio {
-    display: inline-block;
-    padding: 8px 16px;
-    border: 1px solid var(--border-primary);
-    border-radius: 4px;
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+.meal-plan-recipe {
+  background-color: #222;
+  color: #eee;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 0 8px rgba(0,0,0,0.3);
 }
-
-.custom-radio:hover {
-    background-color: var(--accent-primary-bg-hover-light);
-    border-color: var(--accent-primary);
-    color: var(--accent-primary);
-}
-
-input[type="radio"]:checked + .custom-radio {
-    background-color: var(--accent-primary);
-    color: var(--text-inverted);
-    border-color: var(--accent-primary);
-}
-.feedback.error { background-color: rgba(231, 76, 60, 0.1); color: #e74c3c; border-color: #e74c3c; }
-
-/* Custom Select */
-.custom-select {
-    appearance: none;
-    background-color: var(--input-bg);
-    border: 1px solid var(--input-border);
-    border-radius: 5px;
-    padding: 12px 15px;
-    font-size: 1em;
-    color: var(--text-primary);
-    width: 100%;
-    cursor: pointer;
-    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.3s ease, color 0.3s ease;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z' fill='%23a0a0a0'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 15px center;
-    background-size: 20px;
-}
-
-.custom-select:focus {
-    outline: none;
-    border-color: var(--input-focus-border);
-    box-shadow: 0 0 0 3px var(--input-focus-shadow);
-}
-/* Feedback types - Ensure these classes match JS showFeedback */
-.feedback.info { /* Define a style for info if needed, maybe subtle background/border */ background-color: rgba(52, 152, 219, 0.1); color: #3498db; border-color: #3498db;}

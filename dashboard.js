@@ -490,7 +490,7 @@ async function handleGeneratePlan() {
                 planData.recipe_steps.forEach(step => { resultHtml += `<li class="meal-item">${step}</li>`; });
                 resultHtml += '</ul>';
             } else if (planData.recipe) {
-                resultHtml += `<pre>${planData.recipe}</pre>`;
+                resultHtml += `<div class="meal-plan-recipe">${planData.recipe.replace(/\n/g, '<br>')}</div>`;
             } else {
                 resultHtml += '<p>No recipe steps provided.</p>';
             }
