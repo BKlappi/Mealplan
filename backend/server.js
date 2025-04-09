@@ -8,6 +8,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
 const jwt = require('jsonwebtoken');
+const axios = require('axios'); // Added for API calls
 
 const saltRounds = 10;
 const jwtSecret = process.env.JWT_SECRET;
@@ -15,6 +16,39 @@ if (!jwtSecret) {
   console.error("FATAL ERROR: JWT_SECRET is not defined in .env file.");
   process.exit(1);
 }
+
+// Load USDA API Key
+const USDA_API_KEY = process.env.USDA_API_KEY;
+if (!USDA_API_KEY) {
+  console.error("FATAL ERROR: USDA_API_KEY is not defined in .env file.");
+  process.exit(1);
+}
+
+// --- Constants ---
+const PORTION_LIMITS = {
+  // Max grams per single serving (examples, adjust as needed)
+  MAX_GRAIN_UNCOOKED_G: 150,
+  MAX_MEAT_COOKED_G: 250, // Assuming input might be cooked weight for some items
+  MAX_MEAT_UNCOOKED_G: 200, // More typical uncooked limit
+  MAX_OATS_UNCOOKED_G: 100,
+  MAX_SINGLE_VEGETABLE_G: 300, // e.g., large potato, broccoli head
+  MAX_LEAFY_GREENS_G: 150,
+  MAX_LIQUID_ML: 500, // e.g., milk, broth
+  MAX_CHEESE_G: 50,
+  MAX_NUTS_SEEDS_G: 40,
+  MAX_FRUIT_PIECES: 2, // e.g., 2 apples
+  MAX_EGGS_PCS: 3,
+};
+// Nutrient IDs from USDA FoodData Central (common ones)
+const NUTRIENT_IDS = {
+  CALORIES: 1008, // Energy (kcal) - FDC standard
+  PROTEIN: 1003, // Protein - FDC standard
+  FAT: 1004, // Total lipid (fat)
+  CARBS: 1005, // Carbohydrate, by difference
+  SUGAR: 2000, // Sugars, total including NLEA
+  FIBER: 1079, // Fiber, total dietary
+};
+
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -72,6 +106,195 @@ const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 const mealPlannerModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 const foodRecognitionModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+// --- Helper Functions ---
+
+// Helper function to parse inventory quantity strings
+const parseQuantity = (quantityString) => {
+  if (!quantityString) {
+    return null; // No quantity provided
+  }
+  // Simple regex: matches digits (potentially with decimal), optional space, then letters
+  const match = quantityString.trim().match(/^(\d*\.?\d+)\s*([a-zA-Z]+)/);
+  if (match && match[1] && match[2]) {
+    const quantity = parseFloat(match[1]);
+    const unit = match[2].toLowerCase(); // Standardize unit to lowercase
+    // Basic unit validation/normalization (can be expanded)
+    // Common units: g, kg, ml, l, oz, lb, piece(s), cup, tbsp, tsp
+    const validUnits = ['g', 'kg', 'ml', 'l', 'oz', 'lb', 'piece', 'pcs', 'cup', 'tbsp', 'tsp'];
+    // Allow singular 'piece' as well
+    if (unit === 'piece') unit = 'pcs'; // Normalize 'piece' to 'pcs'
+
+    if (validUnits.includes(unit)) {
+      return { quantity, unit };
+    } else {
+      console.warn(`Unrecognized unit '${match[2]}' in quantity string: '${quantityString}'`);
+      return null; // Treat as unparseable for calculations
+    }
+  }
+  console.warn(`Could not parse quantity string: '${quantityString}'`);
+  return null; // Could not parse
+};
+
+// Helper function to fetch nutritional info from USDA FoodData Central
+const getNutritionalInfo = async (foodName) => {
+  const FDC_API_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search';
+  try {
+    const response = await axios.get(FDC_API_URL, {
+      params: {
+        api_key: USDA_API_KEY,
+        query: foodName,
+        pageSize: 5, // Limit results for efficiency
+        dataType: ['SR Legacy', 'Foundation', 'Branded'] // Prioritize these types
+      }
+    });
+
+    if (response.data && response.data.foods && response.data.foods.length > 0) {
+      // Try to find the best match (e.g., first result)
+      const food = response.data.foods[0];
+      let calories = null;
+      let protein = null;
+
+      if (food.foodNutrients) {
+        // Nutrient IDs: 208 = Energy (kcal), 203 = Protein
+        const calorieNutrient = food.foodNutrients.find(n => n.nutrientId === 1008 || n.nutrientNumber === "208"); // FDC uses 1008 for kcal now, but 208 is common
+        const proteinNutrient = food.foodNutrients.find(n => n.nutrientId === 1003 || n.nutrientNumber === "203"); // FDC uses 1003 for protein
+
+        // Values are typically per 100g or 100ml unless otherwise specified
+        if (calorieNutrient) {
+          calories = calorieNutrient.value;
+        }
+         if (proteinNutrient) {
+          protein = proteinNutrient.value;
+        }
+
+        if (calories !== null && protein !== null) {
+          // Assuming values are per 100g/ml as is standard in FDC search results
+          return { caloriesPer100Unit: calories, proteinPer100Unit: protein, unit: 'g or ml' }; // Indicate unit ambiguity
+        }
+      }
+    }
+    console.warn(`Nutritional info not found for: ${foodName}`);
+    return null; // Not found or missing required nutrients
+  } catch (error) {
+    console.error(`Error fetching nutritional info for ${foodName}:`, error.response ? error.response.data : error.message);
+    return null; // API error
+  }
+};
+
+// Helper function to generate combinations of items from an array
+// minK, maxK: min/max size of combinations
+function generateCombinations(arr, minK, maxK) {
+  const result = [];
+  function combine(start, currentCombo) {
+    if (currentCombo.length >= minK && currentCombo.length <= maxK) {
+      result.push([...currentCombo]);
+    }
+    if (currentCombo.length >= maxK) {
+        return; // Stop if we reached max size
+    }
+    for (let i = start; i < arr.length; i++) {
+      currentCombo.push(arr[i]);
+      combine(i + 1, currentCombo);
+      currentCombo.pop();
+    }
+  }
+  combine(0, []);
+  // Filter for unique combinations based on item IDs (if needed, depends on input)
+  // For now, assumes input array items are unique enough or duplicates are acceptable
+  return result;
+}
+
+// Helper function to check portion limits for a single ingredient
+// Note: This is a simplified check based primarily on unit. More sophisticated checks
+// might involve categorizing food items (grain, meat, vegetable etc.)
+function checkPortionLimits(item, usedQuantity) {
+  const unit = item.availableUnit; // Use the parsed unit
+  const name = item.name.toLowerCase();
+
+  // Convert usedQuantity to grams if possible for comparison (simplistic)
+  let usedQuantityG = null;
+  if (unit === 'g') usedQuantityG = usedQuantity;
+  if (unit === 'kg') usedQuantityG = usedQuantity * 1000;
+  // Add other conversions (oz, lb) if needed
+
+  if (unit === 'g' || unit === 'kg') {
+    // Basic categorization attempt based on name keywords
+    if (name.includes('rice') || name.includes('pasta') || name.includes('quinoa') || name.includes('bread') || name.includes('couscous')) {
+       if (usedQuantityG > PORTION_LIMITS.MAX_GRAIN_UNCOOKED_G) return false;
+    } else if (name.includes('chicken') || name.includes('beef') || name.includes('pork') || name.includes('fish') || name.includes('salmon') || name.includes('tuna') || name.includes('turkey') || name.includes('tofu') || name.includes('tempeh')) {
+       // Assume uncooked unless 'cooked' is mentioned? Risky. Using uncooked limit for now.
+       if (usedQuantityG > PORTION_LIMITS.MAX_MEAT_UNCOOKED_G) return false;
+    } else if (name.includes('oats') || name.includes('oatmeal')) {
+       if (usedQuantityG > PORTION_LIMITS.MAX_OATS_UNCOOKED_G) return false;
+    } else if (name.includes('cheese')) {
+       if (usedQuantityG > PORTION_LIMITS.MAX_CHEESE_G) return false;
+    } else if (name.includes('nuts') || name.includes('seeds') || name.includes('almonds') || name.includes('peanut')) {
+       if (usedQuantityG > PORTION_LIMITS.MAX_NUTS_SEEDS_G) return false;
+    } else if (name.includes('spinach') || name.includes('lettuce') || name.includes('kale')) {
+        if (usedQuantityG > PORTION_LIMITS.MAX_LEAFY_GREENS_G) return false;
+    } else { // Assume general vegetable/other
+        if (usedQuantityG > PORTION_LIMITS.MAX_SINGLE_VEGETABLE_G) return false;
+    }
+  } else if (unit === 'ml' || unit === 'l') {
+      const usedQuantityMl = (unit === 'l') ? usedQuantity * 1000 : usedQuantity;
+      if (usedQuantityMl > PORTION_LIMITS.MAX_LIQUID_ML) return false;
+  } else if (unit === 'pcs') {
+      if (name.includes('egg')) {
+          if (usedQuantity > PORTION_LIMITS.MAX_EGGS_PCS) return false;
+      } else if (name.includes('apple') || name.includes('banana') || name.includes('orange')) { // Example fruits
+          if (usedQuantity > PORTION_LIMITS.MAX_FRUIT_PIECES) return false;
+      }
+      // Add more 'pcs' checks if needed
+  }
+  // Add checks for cup, tbsp, tsp if necessary (might require density estimates)
+
+  return true; // Passed portion checks
+}
+
+// Helper function to calculate total nutrients for a list of ingredients
+// Assumes ingredients have { usedQuantity, availableUnit, caloriesPer100Unit, proteinPer100Unit }
+function calculateNutrients(ingredients) {
+  let totalCalories = 0;
+  let totalProtein = 0;
+
+  for (const item of ingredients) {
+    let quantityIn100Unit = 0;
+    // Convert used quantity to the base unit (100g/ml) for calculation
+    // This is highly simplified and assumes base unit is 'g or ml'
+    if (item.availableUnit === 'g' || item.availableUnit === 'ml') {
+      quantityIn100Unit = item.usedQuantity / 100;
+    } else if (item.availableUnit === 'kg' || item.availableUnit === 'l') {
+      quantityIn100Unit = (item.usedQuantity * 1000) / 100;
+    } else if (item.availableUnit === 'pcs') {
+        // MAJOR LIMITATION: Cannot accurately calculate nutrients for 'pcs' items
+        // without knowing the weight/volume per piece. Skipping these for now.
+        console.warn(`Cannot calculate nutrients accurately for item '${item.name}' with unit 'pcs'. Skipping.`);
+        continue;
+    }
+     // Add other unit conversions (oz, lb, cup, tbsp, tsp) if needed, likely requiring approximations
+
+    if (quantityIn100Unit > 0) {
+        totalCalories += item.caloriesPer100Unit * quantityIn100Unit;
+        totalProtein += item.proteinPer100Unit * quantityIn100Unit;
+    }
+  }
+
+  return { calculatedCalories: Math.round(totalCalories), calculatedProtein: Math.round(totalProtein) };
+}
+
+// Helper function to check if calculated nutrients meet goals within tolerance
+function checkGoalLimits(calculatedCalories, calculatedProtein, targetCalories, targetProtein) {
+  const CALORIE_TOLERANCE = 50;
+  const PROTEIN_TOLERANCE = 10;
+
+  const calorieDiff = Math.abs(calculatedCalories - targetCalories);
+  const proteinDiff = Math.abs(calculatedProtein - targetProtein);
+
+  return calorieDiff <= CALORIE_TOLERANCE && proteinDiff <= PROTEIN_TOLERANCE;
+}
+
+
+// --- App Setup ---
 const app = express();
 const port = process.env.PORT || 10000;
 
@@ -230,51 +453,258 @@ app.put('/api/user/inventory/:id', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/generate-plan', authenticateToken, async (req, res) => {
-  const { mode, meal_type, goals, inventory_list, meal_calories, meal_protein } = req.body;
-  if (!mode || !goals || !inventory_list) {
-    return res.status(400).json({ error: 'Missing required fields.' });
+  const { mode, meal_type, goals, /* inventory_list is deprecated */ meal_calories, meal_protein } = req.body; // Removed inventory_list from destructuring
+
+  // Input validation
+  if (!mode || !meal_type || !goals || !meal_calories || !meal_protein) {
+    return res.status(400).json({ success: false, message: 'Missing required fields: mode, meal_type, goals, meal_calories, meal_protein.' });
   }
-  let prompt = '';
-  let responseJsonStructure = '';
+  if (mode !== 'meal' && mode !== 'daily') {
+     return res.status(400).json({ success: false, message: 'Invalid mode specified.' });
+  }
 
-  const inventoryString = inventory_list.map(item => `${item.name}${item.quantity ? ` (${item.quantity})` : ''}`).join(', ') || 'no items provided';
-  const dailyGoalString = `User's approximate daily goals: ${goals.calories || 'Not specified'} kcal, ${goals.protein || 'Not specified'}g protein.`;
+  const userId = req.user.userId;
+  const targetCalories = parseInt(meal_calories);
+  const targetProtein = parseInt(meal_protein);
+  if (isNaN(targetCalories) || isNaN(targetProtein) || targetCalories <= 0 || targetProtein <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid calorie or protein goals.' });
+  }
 
+
+  // --- Meal Generation Logic (mode === 'meal') ---
   if (mode === 'meal') {
-    const mealGoalString = `Target for this specific meal: ${meal_calories || 'any'} kcal, ${meal_protein || 'any'}g protein.`;
+    try {
+      // 1. Fetch User Inventory from DB
+      const inventoryResult = await pool.query(
+        `SELECT id, item_name, item_quantity FROM user_inventory WHERE user_id = $1 ORDER BY item_name`,
+        [userId]
+      );
+      const rawInventory = inventoryResult.rows;
 
-    prompt = `
-You are a meal planning assistant.
+      if (rawInventory.length === 0) {
+        return res.json({ success: false, message: "Your inventory is empty. Please add some items." });
+      }
 
-Your task:
-- Generate ONE specific, sensible, commonly known meal recipe.
-- Use ONLY ingredients from this list: ${inventoryString}.
-- Do NOT use all ingredients; select only what is necessary.
-- Prioritize known, tasty meals (e.g., "Chicken Stir-fry", "Rice Bowl").
-- ONLY if impossible, create a simple, logical combination as a fallback.
-- Estimate calories and protein accurately.
+      // 2. Process Inventory: Parse quantities and fetch nutritional info
+      const processedInventory = [];
+      for (const item of rawInventory) {
+        const parsedQty = parseQuantity(item.item_quantity);
+        if (parsedQty) { // Only process items with parseable quantities
+          console.log(`Fetching nutritional info for: ${item.item_name}`);
+          const nutritionalInfo = await getNutritionalInfo(item.item_name);
+          if (nutritionalInfo) {
+            processedInventory.push({
+              id: item.id,
+              name: item.item_name,
+              availableQuantity: parsedQty.quantity,
+              availableUnit: parsedQty.unit,
+              caloriesPer100Unit: nutritionalInfo.caloriesPer100Unit,
+              proteinPer100Unit: nutritionalInfo.proteinPer100Unit,
+              baseUnit: nutritionalInfo.unit // 'g or ml'
+            });
+          } else {
+             console.log(`Skipping ${item.item_name} - could not fetch nutritional info.`);
+          }
+        } else {
+           console.log(`Skipping ${item.item_name} - could not parse quantity: ${item.item_quantity}`);
+        }
+      }
 
-Targets:
-- Calories: ${meal_calories} ±100
-- Protein: ${meal_protein}g ±15
+      if (processedInventory.length < 2) { // Need at least 2 ingredients with nutritional info for a basic meal
+         return res.json({ success: false, message: "Not enough ingredients with usable quantity and nutritional information found in your inventory." });
+      }
 
-Output:
-- If a suitable meal is possible, respond in **exactly** this format:
+      console.log("Processed Inventory for Meal Generation:", JSON.stringify(processedInventory, null, 2));
+      console.log(`Target Meal: Type=${meal_type}, Calories=${targetCalories}, Protein=${targetProtein}`);
 
-Calories: [Calculated Calories]; Protein: [Calculated Protein]g
-Meal Name: [Name of the meal, or a descriptive title if no standard name exists]
-Recipe:
-1. Step one...
-2. Step two...
-3. Step three...
-(and so on)
+      // 3. Generate Candidate Ingredient Combinations (2 to 5 ingredients)
+      const MIN_INGREDIENTS = 2;
+      const MAX_INGREDIENTS = 5;
+      const candidateCombinations = generateCombinations(processedInventory, MIN_INGREDIENTS, MAX_INGREDIENTS);
 
-- If impossible within tolerances, respond with:
-Insufficient Inventory for the wanted Goals
+      console.log(`Generated ${candidateCombinations.length} candidate combinations.`);
 
-No other text.
-`;
+      let validRecipes = [];
+      let potentialClosestMatches = [];
+
+      // 4. Evaluate Each Candidate Combination
+      for (const combination of candidateCombinations) {
+        console.log(`Evaluating combination: ${combination.map(item => item.name).join(', ')}`);
+
+        // --- Step 4a: Determine Feasible Quantities (MAJOR TODO) ---
+        // This is where a complex algorithm would try to find quantities.
+        // For now, using placeholders - ASSUME determinedQuantities is populated.
+        // Example: Maybe start with a fraction of target calories/protein per item?
+        // Or use a simpler approach: try using 100g/ml/1pc of each? Very naive.
+        // THIS NEEDS A REAL IMPLEMENTATION LATER.
+        let determinedQuantities = combination.map(item => ({
+            ...item, // Keep original info from combination
+            // Placeholder: Use a small fixed amount or fraction of available?
+            // Using 1/N of available (up to a max) as a *very* rough placeholder
+            usedQuantity: Math.round(Math.min(item.availableQuantity / combination.length, (item.availableUnit === 'g' || item.availableUnit === 'kg') ? 100 : (item.availableUnit === 'ml' || item.availableUnit === 'l') ? 100 : 1) * 10) / 10, // Rounded placeholder
+            usedUnit: item.availableUnit
+        }));
+        // --- End Step 4a Placeholder ---
+
+
+        // --- Step 4b: Constraint Checking ---
+             let passesInventoryCheck = true;
+             let passesPortionCheck = true;
+
+             for (const item of determinedQuantities) {
+                 // Inventory Check
+                 if (item.usedQuantity > item.availableQuantity) {
+                     passesInventoryCheck = false;
+                     console.log(`Inventory check failed for ${item.name}: needed ${item.usedQuantity}, have ${item.availableQuantity}`);
+                     break;
+                 }
+                 // Portion Check
+                 if (!checkPortionLimits(item, item.usedQuantity)) {
+                     passesPortionCheck = false;
+                      console.log(`Portion check failed for ${item.name}: used ${item.usedQuantity} ${item.usedUnit}`);
+                     break;
+                 }
+             }
+
+             // Nutritional Calculation (only if inventory/portion checks pass)
+             let calculatedNutrients = { calculatedCalories: 0, calculatedProtein: 0 };
+             if (passesInventoryCheck && passesPortionCheck) {
+                 calculatedNutrients = calculateNutrients(determinedQuantities);
+             }
+
+             // Goal Check
+             let passesGoalCheck = false;
+             if (passesInventoryCheck && passesPortionCheck) {
+                 passesGoalCheck = checkGoalLimits(
+                     calculatedNutrients.calculatedCalories,
+                     calculatedNutrients.calculatedProtein,
+                     targetCalories,
+                     targetProtein
+                 );
+             }
+
+             // Meal Type Check (Basic Placeholder - Needs proper implementation)
+             // TODO: Implement meal type logic based on ingredients and meal_type input
+             let passesMealTypeCheck = true; // Assume true for now
+
+
+             // --- Step 4c: Store Valid Candidates & Closest Matches ---
+             if (passesInventoryCheck && passesPortionCheck && passesMealTypeCheck) {
+                 const recipeCandidate = {
+                     ingredients: determinedQuantities.map(i => ({ // Store only necessary info
+                         name: i.name,
+                         usedQuantity: Math.round(i.usedQuantity * 10) / 10, // Round for display
+                         usedUnit: i.usedUnit
+                     })),
+                     calculatedCalories: calculatedNutrients.calculatedCalories,
+                     calculatedProtein: calculatedNutrients.calculatedProtein,
+                     // Add other relevant info if needed (e.g., score for closest match)
+                 };
+
+                 if (passesGoalCheck) {
+                     console.log(`Valid recipe found: ${recipeCandidate.ingredients.map(i=>i.name).join(', ')} - Cals: ${recipeCandidate.calculatedCalories}, Prot: ${recipeCandidate.calculatedProtein}`);
+                     validRecipes.push(recipeCandidate);
+                 } else {
+                      console.log(`Potential closest match: ${recipeCandidate.ingredients.map(i=>i.name).join(', ')} - Cals: ${recipeCandidate.calculatedCalories}, Prot: ${recipeCandidate.calculatedProtein}`);
+                     potentialClosestMatches.push(recipeCandidate);
+                 }
+             } else {
+                  console.log(`Combination failed pre-checks (Inventory, Portion, or Meal Type): ${combination.map(item => item.name).join(', ')}`);
+             }
+        // } // This closing brace was incorrect and removed
+      } // End loop through combinations
+
+
+      // --- Step 5: Prioritization/Selection & Closest Match ---
+      console.log(`Found ${validRecipes.length} valid recipes and ${potentialClosestMatches.length} potential closest matches.`);
+
+      let finalRecipe = null;
+      let isClosestMatch = false;
+      let notificationMessage = null;
+
+      if (validRecipes.length > 0) {
+        // Prioritization: Simplest - take the first valid one found.
+        // TODO: Implement better prioritization (e.g., based on templates, fewer ingredients)
+        finalRecipe = validRecipes[0];
+        console.log("Selected a valid recipe meeting goals.");
+      } else if (potentialClosestMatches.length > 0) {
+        // Activate Closest Match Protocol
+        console.log("No recipe met exact goals. Activating Closest Match Protocol.");
+        isClosestMatch = true;
+        notificationMessage = "Unfortunately, I couldn't meet your exact nutritional goals with the current inventory and portion constraints. Here is the closest possible recipe:";
+
+        // Find the closest match numerically
+        let bestMatch = null;
+        let minDistance = Infinity;
+
+        for (const match of potentialClosestMatches) {
+          // Simple distance metric (can be weighted)
+          const distance = Math.abs(match.calculatedCalories - targetCalories) + Math.abs(match.calculatedProtein - targetProtein);
+          if (distance < minDistance) {
+            minDistance = distance;
+            bestMatch = match;
+          }
+        }
+        finalRecipe = bestMatch;
+        console.log(`Selected closest match recipe. Distance: ${minDistance}`);
+      }
+
+      // --- Step 6: Meal Naming & Instruction Generation (Placeholder) ---
+      let mealName = "Generated Meal"; // Placeholder
+      let instructions = ["Placeholder: Cook ingredients.", "Placeholder: Serve."]; // Placeholder
+
+      if (finalRecipe) {
+        // TODO: Implement LLM call for naming and instructions based on finalRecipe.ingredients
+        // Example Prompt: "Generate a suitable, common meal name and simple, step-by-step cooking instructions for a single serving meal consisting of exactly: [formatted ingredient list]. Prioritize clarity and standard cooking techniques."
+        // For now, generate a basic name
+        mealName = finalRecipe.ingredients.map(i => i.name).slice(0, 3).join(' and ') + " Dish"; // Simple name
+      } else {
+        // No recipe could be generated at all (even closest match failed basic checks)
+        return res.json({ success: false, message: "Could not generate any suitable recipe with the available ingredients and constraints." });
+      }
+
+      // --- Step 7: Format Final Response ---
+      return res.json({
+        success: true,
+        data: {
+          notification: notificationMessage, // Will be null if exact match found
+          approxCalories: finalRecipe.calculatedCalories,
+          approxProtein: finalRecipe.calculatedProtein,
+          mealName: mealName,
+          ingredients: finalRecipe.ingredients, // Already formatted { name, usedQuantity, usedUnit }
+          instructions: instructions, // Placeholder for now
+        },
+        message: "Inventory processed, nutritional data fetched. Meal generation algorithm not yet implemented.",
+        debug_data: {
+          target_calories: targetCalories,
+          target_protein: targetProtein,
+          meal_type: meal_type,
+          processed_inventory_count: processedInventory.length,
+          // processed_inventory: processedInventory // Optional: include for debugging
+        }
+      });
+      // --- End Placeholder ---
+
+    } catch (error) {
+      console.error("Error during meal generation:", error);
+      return res.status(500).json({ success: false, message: 'Internal server error during meal generation.' });
+    }
+
+  // --- Daily Plan Generation Logic (mode === 'daily') ---
   } else if (mode === 'daily') {
+    // Fetch inventory string for the prompt (as it was before)
+     const inventoryResult = await pool.query(
+        `SELECT item_name, item_quantity FROM user_inventory WHERE user_id = $1 ORDER BY item_name`,
+        [userId]
+      );
+     const inventory_list_for_prompt = inventoryResult.rows.map(row => ({ name: row.item_name, quantity: row.item_quantity }));
+     const inventoryString = inventory_list_for_prompt.map(item => `${item.name}${item.quantity ? ` (${item.quantity})` : ''}`).join(', ') || 'no items provided';
+     const dailyGoalString = `User's approximate daily goals: ${goals.calories || 'Not specified'} kcal, ${goals.protein || 'Not specified'}g protein.`; // Assuming goals still passed for daily
+
+    // NOTE: Daily plan generation still uses the old LLM approach.
+    // This part is NOT updated by the new strict meal generation logic.
+    // It could be refactored later if needed.
+    let responseJsonStructure = ''; // Define here for scope
     responseJsonStructure = `{
       "breakfast": {...},
       "lunch": {...},
