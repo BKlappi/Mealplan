@@ -108,6 +108,28 @@ const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 const mealPlannerModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 const foodRecognitionModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+/**
+ * Piece-to-gram conversion for common foods.
+ * Used to convert 'pcs' to grams for nutrient calculation.
+ * Add more mappings as needed for your inventory.
+ */
+const PIECE_TO_GRAM_MAP = {
+  "egg": 50,
+  "eggs": 50,
+  "sausage": 60,
+  "sausages": 60,
+  "oreo": 11,
+  "oreos": 11,
+  "cheddar cheese": 20,
+  "broccoli": 150,
+  "brocolie": 150,
+  "oreo cookie": 11,
+  "oreo cookies": 11,
+  "chicken breast": 120, // average per piece
+  "red beans": 50, // per piece (approx, adjust as needed)
+  // Add more as needed
+};
+
 // --- Helper Functions ---
 
 // Helper function to parse inventory quantity strings
@@ -579,11 +601,9 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
         let unitVal = null;
 
         if (item.quantity !== null && item.quantity !== undefined && !isNaN(item.quantity) && item.unit) {
-          // Use structured fields if present
           quantityVal = parseFloat(item.quantity);
           unitVal = item.unit.toLowerCase();
         } else {
-          // Fallback to parsing old free-text string
           const parsedQty = parseQuantity(item.item_quantity);
           if (parsedQty) {
             quantityVal = parsedQty.quantity;
@@ -591,15 +611,31 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
           }
         }
 
-        if (quantityVal && unitVal) {
+        // Piece-to-gram conversion for 'pcs' unit
+        let usedQuantity = quantityVal;
+        let usedUnit = unitVal;
+        if (quantityVal && unitVal === 'pcs') {
+          // Normalize name for lookup
+          const normName = item.item_name.trim().toLowerCase();
+          if (PIECE_TO_GRAM_MAP[normName]) {
+            usedQuantity = quantityVal * PIECE_TO_GRAM_MAP[normName];
+            usedUnit = 'g';
+            console.log(`Converted ${quantityVal} pcs of ${item.item_name} to ${usedQuantity}g using PIECE_TO_GRAM_MAP.`);
+          } else {
+            console.warn(`No piece-to-gram mapping for '${item.item_name}'. Skipping.`);
+            continue; // Skip if no mapping
+          }
+        }
+
+        if (usedQuantity && usedUnit) {
           console.log(`Fetching nutritional info for: ${item.item_name}`);
           const nutritionalInfo = await getNutritionalInfo(item.item_name);
           if (nutritionalInfo) {
             processedInventory.push({
               id: item.id,
               name: item.item_name,
-              availableQuantity: quantityVal,
-              availableUnit: unitVal,
+              availableQuantity: usedQuantity,
+              availableUnit: usedUnit,
               caloriesPer100Unit: nutritionalInfo.caloriesPer100Unit,
               proteinPer100Unit: nutritionalInfo.proteinPer100Unit,
               baseUnit: nutritionalInfo.unit // 'g or ml'
