@@ -82,7 +82,9 @@ const initializeDb = async () => {
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         item_name VARCHAR(255) NOT NULL,
-        item_quantity VARCHAR(255)
+        item_quantity VARCHAR(255),
+        quantity NUMERIC,
+        unit VARCHAR(20)
       );
     `);
     console.log("User inventory table ready.");
@@ -387,10 +389,16 @@ app.post('/api/user/goals', authenticateToken, async (req, res) => {
 app.get('/api/user/inventory', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, item_name, item_quantity FROM user_inventory WHERE user_id = $1 ORDER BY item_name`,
+      `SELECT id, item_name, item_quantity, quantity, unit FROM user_inventory WHERE user_id = $1 ORDER BY item_name`,
       [req.user.userId]
     );
-    const inventory = result.rows.map(row => ({ id: row.id, name: row.item_name, quantity: row.item_quantity }));
+    const inventory = result.rows.map(row => ({
+      id: row.id,
+      name: row.item_name,
+      item_quantity: row.item_quantity,
+      quantity: row.quantity,
+      unit: row.unit
+    }));
     res.json({ success: true, inventory });
   } catch (err) {
     console.error(err);
@@ -399,17 +407,48 @@ app.get('/api/user/inventory', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/user/inventory', authenticateToken, async (req, res) => {
-  const { itemName, itemQuantity } = req.body;
+  const { itemName, itemQuantity, quantity, unit } = req.body;
+
   if (!itemName) {
     return res.status(400).json({ success: false, message: 'Item name is required.' });
   }
+
+  // Validate quantity/unit if provided
+  let parsedQuantity = null;
+  if (quantity !== undefined && quantity !== null && quantity !== '') {
+    parsedQuantity = parseFloat(quantity);
+    if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+      return res.status(400).json({ success: false, message: 'Quantity must be a positive number.' });
+    }
+  }
+
+  let normalizedUnit = null;
+  if (unit) {
+    const allowedUnits = ['g', 'kg', 'ml', 'l', 'pcs', 'oz', 'lb', 'cup', 'tbsp', 'tsp'];
+    if (!allowedUnits.includes(unit.toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'Invalid unit.' });
+    }
+    normalizedUnit = unit.toLowerCase();
+  }
+
   try {
     const result = await pool.query(
-      `INSERT INTO user_inventory (user_id, item_name, item_quantity) VALUES ($1, $2, $3) RETURNING id, item_name, item_quantity`,
-      [req.user.userId, itemName, itemQuantity || null]
+      `INSERT INTO user_inventory (user_id, item_name, item_quantity, quantity, unit)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, item_name, item_quantity, quantity, unit`,
+      [req.user.userId, itemName, itemQuantity || null, parsedQuantity, normalizedUnit]
     );
     const item = result.rows[0];
-    res.status(201).json({ success: true, item: { id: item.id, name: item.item_name, quantity: item.item_quantity } });
+    res.status(201).json({
+      success: true,
+      item: {
+        id: item.id,
+        name: item.item_name,
+        item_quantity: item.item_quantity,
+        quantity: item.quantity,
+        unit: item.unit
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Database error adding item.' });
@@ -434,18 +473,53 @@ app.delete('/api/user/inventory/:id', authenticateToken, async (req, res) => {
 
 app.put('/api/user/inventory/:id', authenticateToken, async (req, res) => {
   const itemId = parseInt(req.params.id);
-  const { itemName, itemQuantity } = req.body;
+  const { itemName, itemQuantity, quantity, unit } = req.body;
+
   if (!itemId || !itemName) {
     return res.status(400).json({ success: false, message: 'Valid item ID and name required.' });
   }
+
+  // Validate quantity/unit if provided
+  let parsedQuantity = null;
+  if (quantity !== undefined && quantity !== null && quantity !== '') {
+    parsedQuantity = parseFloat(quantity);
+    if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+      return res.status(400).json({ success: false, message: 'Quantity must be a positive number.' });
+    }
+  }
+
+  let normalizedUnit = null;
+  if (unit) {
+    const allowedUnits = ['g', 'kg', 'ml', 'l', 'pcs', 'oz', 'lb', 'cup', 'tbsp', 'tsp'];
+    if (!allowedUnits.includes(unit.toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'Invalid unit.' });
+    }
+    normalizedUnit = unit.toLowerCase();
+  }
+
   try {
     const result = await pool.query(
-      `UPDATE user_inventory SET item_name = $1, item_quantity = $2 WHERE id = $3 AND user_id = $4 RETURNING id, item_name, item_quantity`,
-      [itemName, itemQuantity || null, itemId, req.user.userId]
+      `UPDATE user_inventory
+       SET item_name = $1,
+           item_quantity = $2,
+           quantity = $3,
+           unit = $4
+       WHERE id = $5 AND user_id = $6
+       RETURNING id, item_name, item_quantity, quantity, unit`,
+      [itemName, itemQuantity || null, parsedQuantity, normalizedUnit, itemId, req.user.userId]
     );
     if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Item not found.' });
     const item = result.rows[0];
-    res.json({ success: true, item: { id: item.id, name: item.item_name, quantity: item.item_quantity } });
+    res.json({
+      success: true,
+      item: {
+        id: item.id,
+        name: item.item_name,
+        item_quantity: item.item_quantity,
+        quantity: item.quantity,
+        unit: item.unit
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Database error updating item.' });

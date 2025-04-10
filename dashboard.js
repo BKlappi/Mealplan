@@ -86,15 +86,59 @@ function displayGoals() {
     console.log("FUNC: displayGoals"); const calsEl = document.getElementById('user-calories'); const protEl = document.getElementById('user-protein'); if (!calsEl || !protEl) return; const curC = calsEl.textContent; const curP = protEl.textContent; calsEl.textContent = currentGoals.calories ?? '...'; protEl.textContent = currentGoals.protein ?? '...'; console.log(`--> Goals Set: C="${curC}">>"${calsEl.textContent}", P="${curP}">>"${protEl.textContent}"`);
 }
 function displayInventory() {
-    console.log("FUNC: displayInventory"); const listEl = document.getElementById('inventory-list'); if (!listEl) {console.error("displayInventory: List Missing"); return;} console.log("--> Inv state before render:", JSON.stringify(currentInventory)); listEl.innerHTML = ''; if (!currentInventory || currentInventory.length === 0) { listEl.innerHTML = '<li>Inventory is empty. Add items!</li>'; return; } console.log(`Rendering ${currentInventory.length} items...`);
+    console.log("FUNC: displayInventory");
+    const listEl = document.getElementById('inventory-list');
+    if (!listEl) {
+        console.error("displayInventory: List Missing");
+        return;
+    }
+    console.log("--> Inv state before render:", JSON.stringify(currentInventory));
+    listEl.innerHTML = '';
+    if (!currentInventory || currentInventory.length === 0) {
+        listEl.innerHTML = '<li>Inventory is empty. Add items!</li>';
+        return;
+    }
+    console.log(`Rendering ${currentInventory.length} items...`);
     currentInventory.forEach((item, index) => {
-         if (!item || typeof item.name === 'undefined') { console.warn("Skipping bad inv item:", item); return; }
-         const li = document.createElement('li'); const textNode = document.createTextNode(`${item.name}${item.quantity ? ` - ${item.quantity}` : ''}`); li.appendChild(textNode);
-         const buttonsDiv = document.createElement('div'); buttonsDiv.classList.add('item-buttons');
-         const editBtn = document.createElement('button'); editBtn.textContent = 'Edit'; editBtn.classList.add('edit-item-button'); editBtn.dataset.index = index; editBtn.addEventListener('click', handleStartEditItem); buttonsDiv.appendChild(editBtn);
-         const removeBtn = document.createElement('button'); removeBtn.textContent = 'Remove'; removeBtn.classList.add('remove-button'); removeBtn.dataset.index = index; removeBtn.addEventListener('click', handleRemoveItem); buttonsDiv.appendChild(removeBtn);
-         li.appendChild(buttonsDiv); listEl.appendChild(li);
-     }); console.log("--> Inv render finished.");
+        if (!item || typeof item.name === 'undefined') {
+            console.warn("Skipping bad inv item:", item);
+            return;
+        }
+        let displayText = item.name;
+
+        // Show structured quantity + unit if available
+        if (item.quantity && item.unit) {
+            displayText += ` - ${item.quantity} ${item.unit}`;
+        } else if (item.item_quantity) {
+            // Fallback to old free-text quantity
+            displayText += ` - ${item.item_quantity}`;
+        }
+
+        const li = document.createElement('li');
+        const textNode = document.createTextNode(displayText);
+        li.appendChild(textNode);
+
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.classList.add('item-buttons');
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.classList.add('edit-item-button');
+        editBtn.dataset.index = index;
+        editBtn.addEventListener('click', handleStartEditItem);
+        buttonsDiv.appendChild(editBtn);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove';
+        removeBtn.classList.add('remove-button');
+        removeBtn.dataset.index = index;
+        removeBtn.addEventListener('click', handleRemoveItem);
+        buttonsDiv.appendChild(removeBtn);
+
+        li.appendChild(buttonsDiv);
+        listEl.appendChild(li);
+    });
+    console.log("--> Inv render finished.");
 }
 
 // *** Refactored loadData Function to fetch from Backend ***
@@ -257,19 +301,30 @@ async function handleInventorySubmit(event) { // Make async
     event.preventDefault();
     const nameIn = document.getElementById('item-name');
     const quantIn = document.getElementById('item-quantity');
+    const structuredQuantityIn = document.getElementById('structured-quantity');
+    const structuredUnitIn = document.getElementById('structured-unit');
     const formEl = document.getElementById('add-inventory-form');
     hideFeedback('inventory-feedback');
-    if (!nameIn || !quantIn || !formEl) return;
+    if (!nameIn || !quantIn || !structuredQuantityIn || !structuredUnitIn || !formEl) return;
 
     const name = nameIn.value.trim();
-    const quantity = quantIn.value.trim();
+    const itemQuantity = quantIn.value.trim(); // free text, optional
+    const quantity = structuredQuantityIn.value.trim(); // number input, optional
+    const unit = structuredUnitIn.value; // dropdown, optional
+
     if (!name) {
         showFeedback('inventory-feedback', 'Item name is required.', 'error');
         return;
     }
     console.log("Inv Submit: editing index =", editingInventoryIndex);
 
-    const itemData = { itemName: name, itemQuantity: quantity };
+    const itemData = {
+        itemName: name,
+        itemQuantity: itemQuantity,
+        quantity: quantity !== '' ? parseFloat(quantity) : null,
+        unit: unit !== '' ? unit : null
+    };
+
     let url = `${API_BASE_URL}/user/inventory`;
     let method = 'POST';
     let successMessage = 'Item Added!';
