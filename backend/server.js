@@ -298,7 +298,8 @@ function calculateNutrients(ingredients) {
 
 // Helper function to check if calculated nutrients meet goals within tolerance
 function checkGoalLimits(calculatedCalories, calculatedProtein, targetCalories, targetProtein) {
-  const CALORIE_TOLERANCE = 50;
+  // Updated tolerances: +/- 100 kcal, +/- 10g protein
+  const CALORIE_TOLERANCE = 100;
   const PROTEIN_TOLERANCE = 10;
 
   const calorieDiff = Math.abs(calculatedCalories - targetCalories);
