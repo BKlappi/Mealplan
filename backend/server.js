@@ -115,26 +115,37 @@ const parseQuantity = (quantityString) => {
   if (!quantityString) {
     return null; // No quantity provided
   }
-  // Simple regex: matches digits (potentially with decimal), optional space, then letters
-  const match = quantityString.trim().match(/^(\d*\.?\d+)\s*([a-zA-Z]+)/);
+
+  const trimmed = quantityString.trim();
+
+  // First, try to match number + unit (normal case)
+  const match = trimmed.match(/^(\d*\.?\d+)\s*([a-zA-Z]+)/);
   if (match && match[1] && match[2]) {
     const quantity = parseFloat(match[1]);
-    const unit = match[2].toLowerCase(); // Standardize unit to lowercase
-    // Basic unit validation/normalization (can be expanded)
-    // Common units: g, kg, ml, l, oz, lb, piece(s), cup, tbsp, tsp
-    const validUnits = ['g', 'kg', 'ml', 'l', 'oz', 'lb', 'piece', 'pcs', 'cup', 'tbsp', 'tsp'];
-    // Allow singular 'piece' as well
-    if (unit === 'piece') unit = 'pcs'; // Normalize 'piece' to 'pcs'
+    let unit = match[2].toLowerCase();
 
+    // Normalize units
+    if (unit === 'piece') unit = 'pcs';
+    if (unit === 'pack' || unit === 'packs') unit = 'packs';
+
+    const validUnits = ['g', 'kg', 'ml', 'l', 'oz', 'lb', 'piece', 'pcs', 'cup', 'tbsp', 'tsp', 'packs'];
     if (validUnits.includes(unit)) {
       return { quantity, unit };
     } else {
       console.warn(`Unrecognized unit '${match[2]}' in quantity string: '${quantityString}'`);
-      return null; // Treat as unparseable for calculations
+      return null;
     }
   }
+
+  // Second, try to match just a number (assume pieces)
+  const numOnly = trimmed.match(/^(\d*\.?\d+)$/);
+  if (numOnly && numOnly[1]) {
+    const quantity = parseFloat(numOnly[1]);
+    return { quantity, unit: 'pcs' };
+  }
+
   console.warn(`Could not parse quantity string: '${quantityString}'`);
-  return null; // Could not parse
+  return null;
 };
 
 // Helper function to fetch nutritional info from USDA FoodData Central
