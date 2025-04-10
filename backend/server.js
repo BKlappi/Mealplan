@@ -141,14 +141,15 @@ const parseQuantity = (quantityString) => {
 const getNutritionalInfo = async (foodName) => {
   const FDC_API_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search';
   try {
-    const response = await axios.get(FDC_API_URL, {
-      params: {
-        api_key: USDA_API_KEY,
-        query: foodName,
-        pageSize: 5, // Limit results for efficiency
-        dataType: ['SR Legacy', 'Foundation', 'Branded'] // Prioritize these types
-      }
-    });
+    const params = new URLSearchParams();
+    params.append('api_key', USDA_API_KEY);
+    params.append('query', foodName);
+    params.append('pageSize', '5');
+    params.append('dataType', 'SR Legacy');
+    params.append('dataType', 'Foundation');
+    params.append('dataType', 'Branded');
+
+    const response = await axios.get(`${FDC_API_URL}?${params.toString()}`);
 
     if (response.data && response.data.foods && response.data.foods.length > 0) {
       // Try to find the best match (e.g., first result)
@@ -559,28 +560,43 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
         return res.json({ success: false, message: "Your inventory is empty. Please add some items." });
       }
 
-      // 2. Process Inventory: Parse quantities and fetch nutritional info
+      // 2. Process Inventory: Use structured fields first, fallback to parsing old string
       const processedInventory = [];
       for (const item of rawInventory) {
-        const parsedQty = parseQuantity(item.item_quantity);
-        if (parsedQty) { // Only process items with parseable quantities
+        let quantityVal = null;
+        let unitVal = null;
+
+        if (item.quantity !== null && item.quantity !== undefined && !isNaN(item.quantity) && item.unit) {
+          // Use structured fields if present
+          quantityVal = parseFloat(item.quantity);
+          unitVal = item.unit.toLowerCase();
+        } else {
+          // Fallback to parsing old free-text string
+          const parsedQty = parseQuantity(item.item_quantity);
+          if (parsedQty) {
+            quantityVal = parsedQty.quantity;
+            unitVal = parsedQty.unit;
+          }
+        }
+
+        if (quantityVal && unitVal) {
           console.log(`Fetching nutritional info for: ${item.item_name}`);
           const nutritionalInfo = await getNutritionalInfo(item.item_name);
           if (nutritionalInfo) {
             processedInventory.push({
               id: item.id,
               name: item.item_name,
-              availableQuantity: parsedQty.quantity,
-              availableUnit: parsedQty.unit,
+              availableQuantity: quantityVal,
+              availableUnit: unitVal,
               caloriesPer100Unit: nutritionalInfo.caloriesPer100Unit,
               proteinPer100Unit: nutritionalInfo.proteinPer100Unit,
               baseUnit: nutritionalInfo.unit // 'g or ml'
             });
           } else {
-             console.log(`Skipping ${item.item_name} - could not fetch nutritional info.`);
+            console.log(`Skipping ${item.item_name} - could not fetch nutritional info.`);
           }
         } else {
-           console.log(`Skipping ${item.item_name} - could not parse quantity: ${item.item_quantity}`);
+          console.log(`Skipping ${item.item_name} - missing or unparseable quantity/unit.`);
         }
       }
 
