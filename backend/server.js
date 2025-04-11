@@ -741,70 +741,81 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
 
 
         // --- Step 4b: Constraint Checking ---
-             let passesInventoryCheck = true;
-             let passesPortionCheck = true;
+        let passesInventoryCheck = true;
+        let passesPortionCheck = true;
 
-             for (const item of determinedQuantities) {
-                 // Inventory Check
-                 if (item.usedQuantity > item.availableQuantity) {
-                     passesInventoryCheck = false;
-                     console.log(`Inventory check failed for ${item.name}: needed ${item.usedQuantity}, have ${item.availableQuantity}`);
-                     break;
-                 }
-                 // Portion Check
-                 if (!checkPortionLimits(item, item.usedQuantity)) {
-                     passesPortionCheck = false;
-                      console.log(`Portion check failed for ${item.name}: used ${item.usedQuantity} ${item.usedUnit}`);
-                     break;
-                 }
-             }
+        for (const item of determinedQuantities) {
+          // Inventory Check
+          if (item.usedQuantity > item.availableQuantity) {
+            passesInventoryCheck = false;
+            console.log(`[REJECT] Inventory check failed for ${item.name}: needed ${item.usedQuantity}, have ${item.availableQuantity}`);
+            break;
+          }
+          // Portion Check
+          if (!checkPortionLimits(item, item.usedQuantity)) {
+            passesPortionCheck = false;
+            console.log(`[REJECT] Portion check failed for ${item.name}: used ${item.usedQuantity} ${item.usedUnit}`);
+            break;
+          }
+        }
 
-             // Nutritional Calculation (only if inventory/portion checks pass)
-             let calculatedNutrients = { calculatedCalories: 0, calculatedProtein: 0 };
-             if (passesInventoryCheck && passesPortionCheck) {
-                 calculatedNutrients = calculateNutrients(determinedQuantities);
-             }
+        // Nutritional Calculation (only if inventory/portion checks pass)
+        let calculatedNutrients = { calculatedCalories: 0, calculatedProtein: 0 };
+        if (passesInventoryCheck && passesPortionCheck) {
+          calculatedNutrients = calculateNutrients(determinedQuantities);
+        }
 
-             // Goal Check
-             let passesGoalCheck = false;
-             if (passesInventoryCheck && passesPortionCheck) {
-                 passesGoalCheck = checkGoalLimits(
-                     calculatedNutrients.calculatedCalories,
-                     calculatedNutrients.calculatedProtein,
-                     targetCalories,
-                     targetProtein
-                 );
-             }
+        // Goal Check
+        let passesGoalCheck = false;
+        if (passesInventoryCheck && passesPortionCheck) {
+          passesGoalCheck = checkGoalLimits(
+            calculatedNutrients.calculatedCalories,
+            calculatedNutrients.calculatedProtein,
+            targetCalories,
+            targetProtein
+          );
+        }
 
-             // Meal Type Check (Basic Placeholder - Needs proper implementation)
-             // TODO: Implement meal type logic based on ingredients and meal_type input
-             let passesMealTypeCheck = true; // Assume true for now
+        // Meal Type Check (Basic Placeholder - Needs proper implementation)
+        // TODO: Implement meal type logic based on ingredients and meal_type input
+        let passesMealTypeCheck = true; // Assume true for now
 
+        // --- Debug Logging for Diagnostics ---
+        if (!passesInventoryCheck) {
+          console.log(`[REJECT] Combination failed inventory check: ${combination.map(i => i.name).join(', ')}`);
+        }
+        if (!passesPortionCheck) {
+          console.log(`[REJECT] Combination failed portion check: ${combination.map(i => i.name).join(', ')}`);
+        }
+        if (passesInventoryCheck && passesPortionCheck) {
+          console.log(`[CHECK] Combination: ${combination.map(i => i.name).join(', ')} | Cals: ${calculatedNutrients.calculatedCalories}, Prot: ${calculatedNutrients.calculatedProtein} | Goal: ${targetCalories} kcal, ${targetProtein}g`);
+          if (!passesGoalCheck) {
+            console.log(`[REJECT] Combination failed nutritional goal check (outside tolerance): ${combination.map(i => i.name).join(', ')}`);
+          }
+        }
 
-             // --- Step 4c: Store Valid Candidates & Closest Matches ---
-             if (passesInventoryCheck && passesPortionCheck && passesMealTypeCheck) {
-                 const recipeCandidate = {
-                     ingredients: determinedQuantities.map(i => ({ // Store only necessary info
-                         name: i.name,
-                         usedQuantity: Math.round(i.usedQuantity * 10) / 10, // Round for display
-                         usedUnit: i.usedUnit
-                     })),
-                     calculatedCalories: calculatedNutrients.calculatedCalories,
-                     calculatedProtein: calculatedNutrients.calculatedProtein,
-                     // Add other relevant info if needed (e.g., score for closest match)
-                 };
+        // --- Step 4c: Store Valid Candidates & Closest Matches ---
+        if (passesInventoryCheck && passesPortionCheck && passesMealTypeCheck) {
+          const recipeCandidate = {
+            ingredients: determinedQuantities.map(i => ({
+              name: i.name,
+              usedQuantity: Math.round(i.usedQuantity * 10) / 10,
+              usedUnit: i.usedUnit
+            })),
+            calculatedCalories: calculatedNutrients.calculatedCalories,
+            calculatedProtein: calculatedNutrients.calculatedProtein,
+          };
 
-                 if (passesGoalCheck) {
-                     console.log(`Valid recipe found: ${recipeCandidate.ingredients.map(i=>i.name).join(', ')} - Cals: ${recipeCandidate.calculatedCalories}, Prot: ${recipeCandidate.calculatedProtein}`);
-                     validRecipes.push(recipeCandidate);
-                 } else {
-                      console.log(`Potential closest match: ${recipeCandidate.ingredients.map(i=>i.name).join(', ')} - Cals: ${recipeCandidate.calculatedCalories}, Prot: ${recipeCandidate.calculatedProtein}`);
-                     potentialClosestMatches.push(recipeCandidate);
-                 }
-             } else {
-                  console.log(`Combination failed pre-checks (Inventory, Portion, or Meal Type): ${combination.map(item => item.name).join(', ')}`);
-             }
-        // } // This closing brace was incorrect and removed
+          if (passesGoalCheck) {
+            console.log(`[ACCEPT] Valid recipe found: ${recipeCandidate.ingredients.map(i=>i.name).join(', ')} - Cals: ${recipeCandidate.calculatedCalories}, Prot: ${recipeCandidate.calculatedProtein}`);
+            validRecipes.push(recipeCandidate);
+          } else {
+            console.log(`[CLOSEST] Potential closest match: ${recipeCandidate.ingredients.map(i=>i.name).join(', ')} - Cals: ${recipeCandidate.calculatedCalories}, Prot: ${recipeCandidate.calculatedProtein}`);
+            potentialClosestMatches.push(recipeCandidate);
+          }
+        } else {
+          console.log(`[REJECT] Combination failed pre-checks (Inventory, Portion, or Meal Type): ${combination.map(item => item.name).join(', ')}`);
+        }
       } // End loop through combinations
 
 
