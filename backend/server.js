@@ -166,65 +166,80 @@ const DEFAULT_PORTION_MAP = {
 const DEFAULT_PORTION_GRAMS = 100; // fallback if not in map
 
 /**
- * Ingredient categories for filtering and template matching.
+ * Ingredient categories and roles for filtering and template matching.
  * Extend as needed for your inventory.
  */
 const INGREDIENT_CATEGORIES = {
-  "egg": "protein",
-  "eggs": "protein",
-  "chicken breast": "protein",
-  "sausage": "protein",
-  "sausages": "protein",
-  "cheddar cheese": "dairy",
-  "milk": "dairy",
-  "broccoli": "vegetable",
-  "brocolie": "vegetable",
-  "red beans": "protein",
-  "rice": "carb",
-  "flour": "carb",
-  "noodles": "carb",
-  "oreo": "snack",
-  "oreos": "snack",
-  "sugar": "sweetener",
-  "olive oil": "fat",
-  "peanut butter": "fat",
-  "vanila extract": "flavor",
-  "chillie flakes": "spice",
-  "curry pulver": "spice",
-  "backing pulver": "leavening",
+  "egg": { category: "protein", role: "main" },
+  "eggs": { category: "protein", role: "main" },
+  "chicken breast": { category: "protein", role: "main" },
+  "sausage": { category: "protein", role: "main" },
+  "sausages": { category: "protein", role: "main" },
+  "cheddar cheese": { category: "dairy", role: "support" },
+  "milk": { category: "dairy", role: "support" },
+  "broccoli": { category: "vegetable", role: "main" },
+  "brocolie": { category: "vegetable", role: "main" },
+  "red beans": { category: "protein", role: "main" },
+  "rice": { category: "carb", role: "main" },
+  "flour": { category: "carb", role: "main" },
+  "noodles": { category: "carb", role: "main" },
+  "oreo": { category: "snack", role: "snack" },
+  "oreos": { category: "snack", role: "snack" },
+  "sugar": { category: "sweetener", role: "flavor" },
+  "olive oil": { category: "fat", role: "support" },
+  "peanut butter": { category: "fat", role: "support" },
+  "vanila extract": { category: "flavor", role: "flavor" },
+  "chillie flakes": { category: "spice", role: "flavor" },
+  "curry pulver": { category: "spice", role: "flavor" },
+  "backing pulver": { category: "leavening", role: "leavening" },
   // Add more as needed
 };
 
 /**
- * Meal templates: each is a list of required ingredient categories.
- * Only generate combinations that match a template.
+ * Meal templates: each is a list of required ingredient categories and forbidden roles.
+ * Only generate combinations that match a template and do not include forbidden roles.
  */
 const MEAL_TEMPLATES = [
   {
     name: "Omelette",
-    categories: ["protein", "dairy", "vegetable"], // e.g., eggs + cheese + broccoli
+    requiredCategories: ["protein", "dairy"],
+    allowedRoles: ["main", "support", "flavor", "vegetable"],
+    forbiddenRoles: ["leavening", "snack"],
     minIngredients: 2,
     maxIngredients: 4,
   },
   {
     name: "Pasta",
-    categories: ["carb", "dairy", "protein"], // e.g., noodles + cheese + sausage
+    requiredCategories: ["carb", "dairy", "protein"],
+    allowedRoles: ["main", "support", "flavor"],
+    forbiddenRoles: ["leavening", "snack"],
     minIngredients: 2,
     maxIngredients: 4,
   },
   {
     name: "Stir-fry",
-    categories: ["protein", "vegetable", "fat"], // e.g., chicken + broccoli + olive oil
+    requiredCategories: ["protein", "vegetable", "fat"],
+    allowedRoles: ["main", "support", "flavor"],
+    forbiddenRoles: ["leavening", "snack"],
     minIngredients: 2,
     maxIngredients: 4,
   },
   {
     name: "Snack",
-    categories: ["snack", "sweetener"],
+    requiredCategories: ["snack"],
+    allowedRoles: ["snack", "flavor", "support"],
+    forbiddenRoles: ["leavening", "main"],
     minIngredients: 1,
     maxIngredients: 3,
   },
   // Add more templates as needed
+];
+
+// Optionally, a blacklist of forbidden ingredient pairs (for future use)
+const FORBIDDEN_PAIRS = [
+  ["backing pulver", "broccoli"],
+  ["backing pulver", "chicken breast"],
+  // Add more as needed
 ];
 
 // --- Helper Functions ---
