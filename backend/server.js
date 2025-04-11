@@ -799,19 +799,41 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
 
       // Helper: Check if a combo matches a template
       function matchesTemplate(combo) {
-        const comboCats = getComboCategories(combo);
+        const comboCats = combo.map(item => (INGREDIENT_CATEGORIES[item.name.trim().toLowerCase()] || {}).category || "other");
+        const comboRoles = combo.map(item => (INGREDIENT_CATEGORIES[item.name.trim().toLowerCase()] || {}).role || "other");
         for (const template of MEAL_TEMPLATES) {
-          // Check if all required categories are present in combo
+          // Check required categories
           const required = template.requiredCategories;
           if (!required) continue;
           const hasAll = required.every(cat => comboCats.includes(cat));
+          if (!hasAll) continue;
+
           // Check forbidden roles
-          const comboRoles = combo.map(item => (INGREDIENT_CATEGORIES[item.name.trim().toLowerCase()] || {}).role || "other");
           const forbidden = template.forbiddenRoles || [];
           const hasForbidden = forbidden.some(role => comboRoles.includes(role));
-          if (hasAll && !hasForbidden && combo.length >= template.minIngredients && combo.length <= template.maxIngredients) {
-            return true;
+          if (hasForbidden) continue;
+
+          // Check allowed roles (all roles in combo must be allowed)
+          const allowed = template.allowedRoles || [];
+          const allAllowed = comboRoles.every(role => allowed.includes(role));
+          if (!allAllowed) continue;
+
+          // Check forbidden ingredient pairs
+          let hasForbiddenPair = false;
+          for (const [a, b] of FORBIDDEN_PAIRS) {
+            const names = combo.map(i => i.name.trim().toLowerCase());
+            if (names.includes(a) && names.includes(b)) {
+              hasForbiddenPair = true;
+              break;
+            }
           }
+          if (hasForbiddenPair) continue;
+
+          // Check ingredient count
+          if (combo.length < template.minIngredients || combo.length > template.maxIngredients) continue;
+
+          // Passed all checks
+          return true;
         }
         return false;
       }
