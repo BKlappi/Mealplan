@@ -802,9 +802,14 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
         const comboCats = getComboCategories(combo);
         for (const template of MEAL_TEMPLATES) {
           // Check if all required categories are present in combo
-          const required = template.categories;
+          const required = template.requiredCategories;
+          if (!required) continue;
           const hasAll = required.every(cat => comboCats.includes(cat));
-          if (hasAll && combo.length >= template.minIngredients && combo.length <= template.maxIngredients) {
+          // Check forbidden roles
+          const comboRoles = combo.map(item => (INGREDIENT_CATEGORIES[item.name.trim().toLowerCase()] || {}).role || "other");
+          const forbidden = template.forbiddenRoles || [];
+          const hasForbidden = forbidden.some(role => comboRoles.includes(role));
+          if (hasAll && !hasForbidden && combo.length >= template.minIngredients && combo.length <= template.maxIngredients) {
             return true;
           }
         }
