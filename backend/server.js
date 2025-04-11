@@ -9,6 +9,7 @@ const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
 const jwt = require('jsonwebtoken');
 const axios = require('axios'); // Added for API calls
+const solver = require('javascript-lp-solver'); // For ingredient optimization
 
 const saltRounds = 10;
 const jwtSecret = process.env.JWT_SECRET;
