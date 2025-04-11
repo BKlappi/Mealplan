@@ -130,6 +130,40 @@ const PIECE_TO_GRAM_MAP = {
   // Add more as needed
 };
 
+/**
+ * Default portion (in grams) for common foods if quantity/unit is missing.
+ * Used to "assume just enough" for a single serving.
+ */
+const DEFAULT_PORTION_MAP = {
+  "egg": 50,
+  "eggs": 50,
+  "sausage": 60,
+  "sausages": 60,
+  "oreo": 11,
+  "oreos": 11,
+  "cheddar cheese": 20,
+  "broccoli": 100,
+  "brocolie": 100,
+  "oreo cookie": 11,
+  "oreo cookies": 11,
+  "chicken breast": 120,
+  "red beans": 100,
+  "rice": 150,
+  "flour": 50,
+  "milk": 200,
+  "olive oil": 10,
+  "sugar": 10,
+  "potatoes": 150,
+  "cheese": 30,
+  "bread": 50,
+  "cucumber": 100,
+  "chillie flakes": 2,
+  "curry pulver": 2,
+  "backing pulver": 10,
+  // Add more as needed
+};
+const DEFAULT_PORTION_GRAMS = 100; // fallback if not in map
+
 // --- Helper Functions ---
 
 // Helper function to parse inventory quantity strings
@@ -614,6 +648,7 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
         // Piece-to-gram conversion for 'pcs' unit
         let usedQuantity = quantityVal;
         let usedUnit = unitVal;
+        let usedDefault = false;
         if (quantityVal && unitVal === 'pcs') {
           // Normalize name for lookup
           const normName = item.item_name.trim().toLowerCase();
@@ -627,7 +662,26 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
           }
         }
 
+        // If still missing or unparseable, use default portion
+        if ((!usedQuantity || !usedUnit) && item.item_name) {
+          const normName = item.item_name.trim().toLowerCase();
+          if (DEFAULT_PORTION_MAP[normName]) {
+            usedQuantity = DEFAULT_PORTION_MAP[normName];
+            usedUnit = 'g';
+            usedDefault = true;
+            console.warn(`Assuming default portion for '${item.item_name}': ${usedQuantity}g`);
+          } else {
+            usedQuantity = DEFAULT_PORTION_GRAMS;
+            usedUnit = 'g';
+            usedDefault = true;
+            console.warn(`Assuming generic default portion for '${item.item_name}': ${usedQuantity}g`);
+          }
+        }
+
         if (usedQuantity && usedUnit) {
+          if (usedDefault) {
+            console.warn(`Used default portion for '${item.item_name}' (${usedQuantity}${usedUnit}) due to missing/invalid quantity/unit.`);
+          }
           console.log(`Fetching nutritional info for: ${item.item_name}`);
           const nutritionalInfo = await getNutritionalInfo(item.item_name);
           if (nutritionalInfo) {
@@ -644,7 +698,7 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
             console.log(`Skipping ${item.item_name} - could not fetch nutritional info.`);
           }
         } else {
-          console.log(`Skipping ${item.item_name} - missing or unparseable quantity/unit.`);
+          console.log(`Skipping ${item.item_name} - missing or unparseable quantity/unit and no default available.`);
         }
       }
 
