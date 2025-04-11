@@ -165,6 +165,68 @@ const DEFAULT_PORTION_MAP = {
 };
 const DEFAULT_PORTION_GRAMS = 100; // fallback if not in map
 
+/**
+ * Ingredient categories for filtering and template matching.
+ * Extend as needed for your inventory.
+ */
+const INGREDIENT_CATEGORIES = {
+  "egg": "protein",
+  "eggs": "protein",
+  "chicken breast": "protein",
+  "sausage": "protein",
+  "sausages": "protein",
+  "cheddar cheese": "dairy",
+  "milk": "dairy",
+  "broccoli": "vegetable",
+  "brocolie": "vegetable",
+  "red beans": "protein",
+  "rice": "carb",
+  "flour": "carb",
+  "noodles": "carb",
+  "oreo": "snack",
+  "oreos": "snack",
+  "sugar": "sweetener",
+  "olive oil": "fat",
+  "peanut butter": "fat",
+  "vanila extract": "flavor",
+  "chillie flakes": "spice",
+  "curry pulver": "spice",
+  "backing pulver": "leavening",
+  // Add more as needed
+};
+
+/**
+ * Meal templates: each is a list of required ingredient categories.
+ * Only generate combinations that match a template.
+ */
+const MEAL_TEMPLATES = [
+  {
+    name: "Omelette",
+    categories: ["protein", "dairy", "vegetable"], // e.g., eggs + cheese + broccoli
+    minIngredients: 2,
+    maxIngredients: 4,
+  },
+  {
+    name: "Pasta",
+    categories: ["carb", "dairy", "protein"], // e.g., noodles + cheese + sausage
+    minIngredients: 2,
+    maxIngredients: 4,
+  },
+  {
+    name: "Stir-fry",
+    categories: ["protein", "vegetable", "fat"], // e.g., chicken + broccoli + olive oil
+    minIngredients: 2,
+    maxIngredients: 4,
+  },
+  {
+    name: "Snack",
+    categories: ["snack", "sweetener"],
+    minIngredients: 1,
+    maxIngredients: 3,
+  },
+  // Add more templates as needed
+];
+
 // --- Helper Functions ---
 
 // Helper function to parse inventory quantity strings
@@ -713,9 +775,36 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
       // 3. Generate Candidate Ingredient Combinations (2 to 5 ingredients)
       const MIN_INGREDIENTS = 2;
       const MAX_INGREDIENTS = 5;
-      const candidateCombinations = generateCombinations(processedInventory, MIN_INGREDIENTS, MAX_INGREDIENTS);
+      const allCombinations = generateCombinations(processedInventory, MIN_INGREDIENTS, MAX_INGREDIENTS);
 
-      console.log(`Generated ${candidateCombinations.length} candidate combinations.`);
+      // Helper: Get ingredient categories for a combo
+      function getComboCategories(combo) {
+        return combo.map(item => INGREDIENT_CATEGORIES[item.name.trim().toLowerCase()] || "other");
+      }
+
+      // Helper: Check if a combo matches a template
+      function matchesTemplate(combo) {
+        const comboCats = getComboCategories(combo);
+        for (const template of MEAL_TEMPLATES) {
+          // Check if all required categories are present in combo
+          const required = template.categories;
+          const hasAll = required.every(cat => comboCats.includes(cat));
+          if (hasAll && combo.length >= template.minIngredients && combo.length <= template.maxIngredients) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // Filter combinations to only those matching a template, or fallback to simple combos if none
+      let candidateCombinations = allCombinations.filter(matchesTemplate);
+      if (candidateCombinations.length === 0) {
+        // Fallback: allow all 2-ingredient combos
+        candidateCombinations = allCombinations.filter(combo => combo.length === 2);
+        console.warn("No template-matching combos found, falling back to simple 2-ingredient combos.");
+      }
+
+      console.log(`Generated ${candidateCombinations.length} candidate combinations (after template filtering).`);
 
       let validRecipes = [];
       let potentialClosestMatches = [];
