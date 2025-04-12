@@ -420,8 +420,9 @@ const app = express();
 const port = process.env.PORT || 10000;
 
 app.use(cors());
-app.use(fileUpload());
-app.use(express.json());
+app.use(fileUpload({ limits: { fileSize: 25 * 1024 * 1024 } })); // Allow up to 25MB files
+app.use(express.json({ limit: '10mb' })); // Allow up to 10MB JSON payloads
+app.use(express.urlencoded({ limit: '10mb', extended: true })); // Allow up to 10MB URL-encoded payloads
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
