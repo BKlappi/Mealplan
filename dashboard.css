@@ -277,15 +277,19 @@ ul {
   font-size: 1.08rem;
   font-weight: 500;
   color: var(--text-primary, #fff);
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  min-width: 0;
   letter-spacing: 0.01em;
-  white-space: normal; /* Allow wrapping */
-  overflow-wrap: anywhere;
-  margin-right: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 16px;
   padding-left: 2px;
   line-height: 1.4;
-  display: block;
+  display: flex;
+  align-items: center;
   text-shadow: none;
+  word-break: normal;
 }
 
 /* Buttons use .item-buttons class from JS */
@@ -294,6 +298,7 @@ ul {
   gap: 8px;
   margin-top: 0;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .recognized-item-pill .edit-item-button,
