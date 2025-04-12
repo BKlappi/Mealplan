@@ -421,6 +421,24 @@ const port = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(fileUpload({ limits: { fileSize: 25 * 1024 * 1024 } })); // Allow up to 25MB files
+
+// Move the image upload route here, before JSON body parsers
+/* (duplicate route removed) */
+        contents: [{ role: "user", parts: [{ text: prompt }, imagePart] }],
+        generationConfig,
+        safetySettings,
+      });
+    } catch (err) {
+      console.error('[500] Error during image processing:', err);
+      return res.status(500).json({ success: false, message: 'Server error during image processing.', error: err && err.message ? err.message : err });
+    }
+
+  } catch (err) {
+    console.error('[500] Unexpected error in image upload route:', err);
+    return res.status(500).json({ success: false, message: 'Unexpected server error in image upload route.', error: err && err.message ? err.message : err });
+  }
+});
+
 app.use(express.json({ limit: '10mb' })); // Allow up to 10MB JSON payloads
 app.use(express.urlencoded({ limit: '10mb', extended: true })); // Allow up to 10MB URL-encoded payloads
 
@@ -1259,50 +1277,7 @@ function fileToGenerativePart(buffer, mimeType) {
   };
 }
 
-app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
-  try {
-    if (!req.files || !req.files.foodImage) {
-      console.error('[400] No image uploaded. req.files:', req.files, 'Headers:', req.headers);
-      return res.status(400).json({ success: false, message: 'No image uploaded. Debug: req.files or foodImage missing.' });
-    }
-    const foodImageFile = req.files.foodImage;
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedMimeTypes.includes(foodImageFile.mimetype)) {
-      console.error('[400] Invalid file type:', foodImageFile.mimetype, 'File info:', foodImageFile);
-      return res.status(400).json({ success: false, message: 'Invalid file type. Debug: ' + foodImageFile.mimetype });
-    }
-
-  try {
-    const imagePart = fileToGenerativePart(foodImageFile.data, foodImageFile.mimetype);
-    const prompt = `
-Identify ONLY edible food items in the image.
-Return ONLY a JSON array of strings, e.g., ["Apples", "Milk Carton"].
-If none, return [].
-`;
-
-    const generationConfig = {
-      temperature: 0.7,
-      topP: 0.9,
-      topK: 20,
-      maxOutputTokens: 1024,
-    };
-    const safetySettings = [
-      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-    ];
-
-    const result = await foodRecognitionModel.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }, imagePart] }],
-      generationConfig,
-      safetySettings,
-    });
-  } catch (err) {
-    console.error('[500] Error during image processing:', err);
-    return res.status(500).json({ success: false, message: 'Server error during image processing.', error: err && err.message ? err.message : err });
-  }
-
+/* (route moved above JSON body parsers) */
     const responseText = result.response.candidates[0].content.parts[0].text.trim();
     const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
     let recognizedItems;
