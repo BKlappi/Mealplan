@@ -424,20 +424,7 @@ app.use(fileUpload({ limits: { fileSize: 25 * 1024 * 1024 } })); // Allow up to 
 
 // Move the image upload route here, before JSON body parsers
 /* (duplicate route removed) */
-        contents: [{ role: "user", parts: [{ text: prompt }, imagePart] }],
-        generationConfig,
-        safetySettings,
-      });
-    } catch (err) {
-      console.error('[500] Error during image processing:', err);
-      return res.status(500).json({ success: false, message: 'Server error during image processing.', error: err && err.message ? err.message : err });
-    }
-
-  } catch (err) {
-    console.error('[500] Unexpected error in image upload route:', err);
-    return res.status(500).json({ success: false, message: 'Unexpected server error in image upload route.', error: err && err.message ? err.message : err });
-  }
-});
+/* (removed invalid fragment left from previous edit) */
 
 app.use(express.json({ limit: '10mb' })); // Allow up to 10MB JSON payloads
 app.use(express.urlencoded({ limit: '10mb', extended: true })); // Allow up to 10MB URL-encoded payloads
