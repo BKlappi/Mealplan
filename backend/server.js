@@ -422,6 +422,19 @@ const port = process.env.PORT || 10000;
 app.use(cors());
 app.use(fileUpload({ limits: { fileSize: 25 * 1024 * 1024 } })); // Allow up to 25MB files
 
+// --- Auth Middleware (must be defined before any route that uses it) ---
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, jwtSecret, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+
 // --- Image Upload Route (MUST be before JSON body parsers) ---
 app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
   try {
@@ -477,18 +490,6 @@ app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
 
 app.use(express.json({ limit: '10mb' })); // Allow up to 10MB JSON payloads
 app.use(express.urlencoded({ limit: '10mb', extended: true })); // Allow up to 10MB URL-encoded payloads
-
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, jwtSecret, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-};
 
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
