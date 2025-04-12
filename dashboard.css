@@ -248,75 +248,62 @@ ul {
 }
 
 .recognized-item-pill {
-  /* Modern pill style */
-  background: linear-gradient(90deg, var(--bg-tertiary) 70%, var(--accent-primary) 100%);
-  padding: 12px 20px;
-  border-radius: 24px;
-  margin-bottom: 14px;
+  background: var(--bg-tertiary);
+  padding: 12px 18px;
+  border-radius: 18px;
+  margin-bottom: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 64px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.10), 0 1.5px 6px 0 var(--shadow-color-dark);
-  border: 1.5px solid var(--accent-primary);
-  transition: 
-    box-shadow 0.18s, 
-    background 0.18s, 
-    transform 0.13s cubic-bezier(.4,2,.6,1),
-    border-color 0.18s;
+  min-height: 56px;
+  box-shadow: 0 1.5px 6px 0 var(--shadow-color-dark);
+  border: 1px solid var(--border-primary, #222);
+  transition: box-shadow 0.15s, background 0.15s, border-color 0.15s;
   position: relative;
   overflow: hidden;
 }
 
 .recognized-item-pill:hover {
-  box-shadow: 0 6px 24px 0 rgba(0,0,0,0.18), 0 2px 8px 0 var(--accent-primary);
-  background: linear-gradient(90deg, var(--accent-primary) 0%, var(--bg-tertiary) 100%);
-  border-color: var(--accent-primary-hover);
-  transform: scale(1.025);
-  z-index: 2;
+  box-shadow: 0 4px 16px 0 rgba(0,0,0,0.13);
+  background: var(--bg-secondary, #23272f);
+  border-color: var(--accent-primary);
 }
 
 .recognized-item-name {
-  /* Ensure text is visible and doesn't break weirdly */
-  font-size: 1.13rem;
-  font-weight: 600;
+  font-size: 1.08rem;
+  font-weight: 500;
   color: var(--text-primary, #fff);
-  flex: 1 1 auto;
+  flex: 1 1 0;
   letter-spacing: 0.01em;
   white-space: normal; /* Allow wrapping */
-  overflow: visible;
-  text-overflow: clip;
-  margin-right: 22px;
+  overflow-wrap: anywhere;
+  margin-right: 18px;
   padding-left: 2px;
-  line-height: 1.5;
-  display: flex;
-  align-items: center;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  line-height: 1.4;
+  display: block;
+  text-shadow: none;
 }
 
 /* Buttons use .item-buttons class from JS */
 .recognized-item-pill .item-buttons {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-top: 0;
+  align-items: center;
 }
 
 .recognized-item-pill .edit-item-button,
 .recognized-item-pill .remove-button {
   margin-left: 0;
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 500;
-  border-radius: 16px;
-  padding: 7px 18px;
+  border-radius: 14px;
+  padding: 6px 16px;
   border: none;
   background: var(--bg-secondary, #23272f);
-  color: var(--accent-primary);
-  box-shadow: 0 1px 3px 0 rgba(0,0,0,0.08);
-  transition: 
-    background 0.15s, 
-    color 0.15s, 
-    box-shadow 0.15s, 
-    transform 0.12s;
+  color: var(--text-primary, #fff);
+  box-shadow: none;
+  transition: background 0.13s, color 0.13s, border 0.13s;
   outline: none;
   cursor: pointer;
 }
@@ -325,15 +312,12 @@ ul {
 .recognized-item-pill .remove-button:hover {
   background: var(--accent-primary);
   color: #fff;
-  box-shadow: 0 2px 8px 0 var(--accent-primary);
-  transform: translateY(-2px) scale(1.04);
 }
 
 .recognized-item-pill .edit-item-button:active,
 .recognized-item-pill .remove-button:active {
   background: var(--accent-primary-hover);
   color: #fff;
-  transform: scale(0.98);
 }
 
 /* Removed empty ruleset for .recognized-item-pill .edit-item-button */
