@@ -261,6 +261,10 @@ ul {
   transition: box-shadow 0.15s, background 0.15s, border-color 0.15s;
   position: relative;
   overflow: hidden;
+  width: 100%;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .recognized-item-pill:hover {
