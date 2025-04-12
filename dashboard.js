@@ -18,30 +18,34 @@ async function fetchWithAuth(url, options = {}) {
     const token = localStorage.getItem('authToken');
     if (!token) {
         console.error("fetchWithAuth: No auth token found. Redirecting to login.");
-        // Redirect to login if no token is found
         window.location.href = 'login.html';
-        throw new Error("Authentication token not found."); // Prevent further execution
+        throw new Error("Authentication token not found.");
     }
 
+    // Determine if body is FormData
+    const isFormData = options.body instanceof FormData;
+
+    // Build headers: always set Authorization, but only set Content-Type if not FormData
     const headers = {
         ...options.headers,
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json', // Assume JSON unless specified otherwise
     };
+    if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+    }
 
     const response = await fetch(url, { ...options, headers });
 
     if (response.status === 401 || response.status === 403) {
-        // Handle unauthorized or forbidden errors, e.g., redirect to login
         console.error("fetchWithAuth: Unauthorized or Forbidden. Redirecting to login.");
-        localStorage.removeItem('authToken'); // Clear invalid token
+        localStorage.removeItem('authToken');
         localStorage.removeItem(LOGGED_IN_USER_KEY);
         localStorage.removeItem(LOGGED_IN_USERNAME_KEY);
         window.location.href = 'login.html';
-        throw new Error("Unauthorized or Forbidden."); // Prevent further execution
+        throw new Error("Unauthorized or Forbidden.");
     }
 
-    return response; // Return the full response object
+    return response;
 }
 
 // Updated showFeedback to use new CSS classes

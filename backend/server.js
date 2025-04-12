@@ -422,9 +422,58 @@ const port = process.env.PORT || 10000;
 app.use(cors());
 app.use(fileUpload({ limits: { fileSize: 25 * 1024 * 1024 } })); // Allow up to 25MB files
 
-// Move the image upload route here, before JSON body parsers
-/* (duplicate route removed) */
-/* (removed invalid fragment left from previous edit) */
+// --- Image Upload Route (MUST be before JSON body parsers) ---
+app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
+  try {
+    // Debug: Log headers and files
+    console.log('Image Upload Request Headers:', req.headers);
+    if (!req.files || !req.files.foodImage) {
+      console.error('No file uploaded. req.files:', req.files);
+      return res.status(400).json({ success: false, message: 'No file uploaded.', debug: { files: req.files } });
+    }
+
+    const foodImage = req.files.foodImage;
+
+    // Validate file type (allow only images)
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(foodImage.mimetype)) {
+      console.error('Invalid file type:', foodImage.mimetype);
+      return res.status(400).json({ success: false, message: 'Invalid file type. Only JPEG, PNG, JPG, and WEBP are allowed.' });
+    }
+
+    // Validate file size (already limited by middleware, but double-check)
+    if (foodImage.size > 25 * 1024 * 1024) {
+      console.error('File too large:', foodImage.size);
+      return res.status(400).json({ success: false, message: 'File too large. Max 25MB allowed.' });
+    }
+
+    // Save file to disk (optional: you may want to save to cloud or process directly)
+    const path = require('path');
+    const fs = require('fs');
+    const uploadDir = path.join(__dirname, '../images');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    const fileName = `upload_${Date.now()}_${foodImage.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    const filePath = path.join(uploadDir, fileName);
+
+    await foodImage.mv(filePath);
+
+    // Respond with success and file info
+    res.json({
+      success: true,
+      message: 'Image uploaded successfully.',
+      fileName,
+      filePath: `/images/${fileName}`,
+      mimetype: foodImage.mimetype,
+      size: foodImage.size
+    });
+  } catch (err) {
+    // Log full error for debugging
+    console.error('Image upload error:', err, '| req.files:', req.files, '| req.headers:', req.headers);
+    res.status(500).json({ success: false, message: 'Internal server error during image upload.' });
+  }
+});
 
 app.use(express.json({ limit: '10mb' })); // Allow up to 10MB JSON payloads
 app.use(express.urlencoded({ limit: '10mb', extended: true })); // Allow up to 10MB URL-encoded payloads
