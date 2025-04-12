@@ -765,30 +765,41 @@ function displayRecognizedItems(items) {
             listEl.innerHTML = '<li class="recognized-empty">No items recognized.</li>';
             return;
         }
-        const container = document.createElement('div');
-        container.className = 'recognized-items-container';
+        // Use a <ul> for recognized items, matching inventory list style
+        const ul = document.createElement('ul');
+        ul.className = 'recognized-items-list';
+        ul.style.listStyle = 'none';
+        ul.style.padding = '0';
+        ul.style.margin = '0';
 
         recognized.forEach((itemName, idx) => {
-            const card = document.createElement('div');
-            card.className = 'recognized-item-card';
-            card.setAttribute('data-index', idx);
+            const li = document.createElement('li');
+            li.className = 'recognized-item-pill';
+            li.style.background = ''; // inherit from CSS
+            li.style.display = 'flex';
+            li.style.justifyContent = 'space-between';
+            li.style.alignItems = 'center';
+            li.style.padding = '';
+            li.style.marginBottom = '10px';
+            li.style.borderRadius = '';
+            li.style.minHeight = '';
+            li.style.boxShadow = '';
 
-            // Item name
-            const nameDiv = document.createElement('div');
-            nameDiv.className = 'recognized-item-name';
-            nameDiv.textContent = itemName;
-            card.appendChild(nameDiv);
+            // Item name (match inventory style)
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'recognized-item-name';
+            nameSpan.textContent = itemName;
 
-            // Button group
+            // Button group (match .item-buttons)
             const btnGroup = document.createElement('div');
-            btnGroup.className = 'recognized-btn-group';
+            btnGroup.className = 'item-buttons';
 
-            // Add button
+            // Add button (match .edit-item-button)
             const addBtn = document.createElement('button');
-            addBtn.className = 'recognized-add-btn';
+            addBtn.className = 'edit-item-button';
+            addBtn.type = 'button';
+            addBtn.textContent = 'Add';
             addBtn.title = `Add "${itemName}" to inventory`;
-            addBtn.setAttribute('aria-label', `Add ${itemName} to inventory`);
-            addBtn.innerHTML = '<span class="icon-add">✓</span> Add';
             addBtn.onclick = () => {
                 nameInput.value = itemName;
                 if (quantityInput) quantityInput.value = '';
@@ -798,12 +809,12 @@ function displayRecognizedItems(items) {
                 showFeedback('inventory-feedback', `"${itemName}" copied to form. Add quantity and click 'Add Item'.`, 'info', 4000);
             };
 
-            // Reject button
+            // Reject button (match .remove-button)
             const rejectBtn = document.createElement('button');
-            rejectBtn.className = 'recognized-reject-btn';
+            rejectBtn.className = 'remove-button';
+            rejectBtn.type = 'button';
+            rejectBtn.textContent = 'Reject';
             rejectBtn.title = `Reject "${itemName}"`;
-            rejectBtn.setAttribute('aria-label', `Reject ${itemName}`);
-            rejectBtn.innerHTML = '<span class="icon-reject">✗</span> Reject';
             rejectBtn.onclick = () => {
                 recognized.splice(idx, 1);
                 render();
@@ -812,11 +823,13 @@ function displayRecognizedItems(items) {
 
             btnGroup.appendChild(addBtn);
             btnGroup.appendChild(rejectBtn);
-            card.appendChild(btnGroup);
-            container.appendChild(card);
+
+            li.appendChild(nameSpan);
+            li.appendChild(btnGroup);
+            ul.appendChild(li);
         });
 
-        listEl.appendChild(container);
+        listEl.appendChild(ul);
     }
 
     render();

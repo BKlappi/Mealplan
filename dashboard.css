@@ -237,119 +237,107 @@ ul {
   margin-left: 0;
 }
 
-/* === Recognized Items Modern UI === */
-.recognized-items-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 18px;
-  margin-bottom: 10px;
-  background: transparent;
+/* === Recognized Items (Styled to Match Inventory List) ===
+   These rules ensure recognized items look and behave exactly like inventory items.
+   If you update #inventory-list li, update .recognized-item-pill to match.
+*/
+.recognized-items-list {
+  list-style: none;
   padding: 0;
-  border-radius: 0;
-  box-shadow: none;
+  margin: 18px 0 10px 0;
 }
 
-.recognized-item-card {
+.recognized-item-pill {
+  /* Modern pill style */
+  background: linear-gradient(90deg, var(--bg-tertiary) 70%, var(--accent-primary) 100%);
+  padding: 12px 20px;
+  border-radius: 24px;
+  margin-bottom: 14px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  background-color: var(--bg-tertiary, #23272f);
-  border-radius: 20px;
-  margin-bottom: 10px;
-  min-height: 48px;
-  box-shadow: 0 2px 6px var(--shadow-color-dark, rgba(0,0,0,0.10));
-  padding: 10px 18px;
-  gap: 18px;
-  border: none;
-  transition: box-shadow 0.18s, background 0.18s;
+  align-items: center;
+  min-height: 64px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.10), 0 1.5px 6px 0 var(--shadow-color-dark);
+  border: 1.5px solid var(--accent-primary);
+  transition: 
+    box-shadow 0.18s, 
+    background 0.18s, 
+    transform 0.13s cubic-bezier(.4,2,.6,1),
+    border-color 0.18s;
+  position: relative;
+  overflow: hidden;
 }
 
-.recognized-item-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.14);
-  background: var(--bg-secondary, #22252a);
+.recognized-item-pill:hover {
+  box-shadow: 0 6px 24px 0 rgba(0,0,0,0.18), 0 2px 8px 0 var(--accent-primary);
+  background: linear-gradient(90deg, var(--accent-primary) 0%, var(--bg-tertiary) 100%);
+  border-color: var(--accent-primary-hover);
+  transform: scale(1.025);
+  z-index: 2;
 }
 
 .recognized-item-name {
-  font-size: 1.08rem;
-  font-weight: 500;
+  /* Ensure text is visible and doesn't break weirdly */
+  font-size: 1.13rem;
+  font-weight: 600;
   color: var(--text-primary, #fff);
   flex: 1 1 auto;
   letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-right: 18px;
+  white-space: normal; /* Allow wrapping */
+  overflow: visible;
+  text-overflow: clip;
+  margin-right: 22px;
   padding-left: 2px;
-  line-height: 1.2;
+  line-height: 1.5;
   display: flex;
   align-items: center;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.10);
 }
 
-.recognized-btn-group {
+/* Buttons use .item-buttons class from JS */
+.recognized-item-pill .item-buttons {
   display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 10px;
+  margin-top: 0;
 }
 
-.recognized-add-btn,
-.recognized-reject-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 15px;
+.recognized-item-pill .edit-item-button,
+.recognized-item-pill .remove-button {
+  margin-left: 0;
+  font-size: 1rem;
   font-weight: 500;
+  border-radius: 16px;
+  padding: 7px 18px;
   border: none;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  background: var(--bg-secondary, #23272f);
+  color: var(--accent-primary);
+  box-shadow: 0 1px 3px 0 rgba(0,0,0,0.08);
+  transition: 
+    background 0.15s, 
+    color 0.15s, 
+    box-shadow 0.15s, 
+    transform 0.12s;
   outline: none;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  cursor: pointer;
 }
 
-.recognized-add-btn {
-  background: #28a745;
+.recognized-item-pill .edit-item-button:hover,
+.recognized-item-pill .remove-button:hover {
+  background: var(--accent-primary);
   color: #fff;
-}
-.recognized-add-btn:hover:not(:disabled) {
-  background: #218838;
+  box-shadow: 0 2px 8px 0 var(--accent-primary);
+  transform: translateY(-2px) scale(1.04);
 }
 
-.recognized-reject-btn {
-  background: #dc3545;
+.recognized-item-pill .edit-item-button:active,
+.recognized-item-pill .remove-button:active {
+  background: var(--accent-primary-hover);
   color: #fff;
-}
-.recognized-reject-btn:hover:not(:disabled) {
-  background: #b52a37;
+  transform: scale(0.98);
 }
 
-.recognized-add-btn:disabled,
-.recognized-reject-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.icon-add,
-.icon-check,
-.icon-reject {
-  font-size: 1.2em;
-  vertical-align: middle;
-}
-
-.recognized-item-added {
-  background: #2ecc40 !important;
-  color: #fff !important;
-  opacity: 0.7;
-  transition: background 0.2s, opacity 0.2s;
-}
-
-.recognized-item-rejected {
-  background: #e74c3c !important;
-  color: #fff !important;
-  opacity: 0.5;
-  transition: background 0.2s, opacity 0.2s;
-}
+/* Removed empty ruleset for .recognized-item-pill .edit-item-button */
+/* Removed empty ruleset for .recognized-item-pill .remove-button */
 
 .recognized-empty {
   text-align: center;
@@ -361,19 +349,15 @@ ul {
   list-style: none;
 }
 
-/* Responsive for mobile */
+/* Responsive adjustments */
 @media (max-width: 600px) {
-  .recognized-items-container {
-    padding: 10px 4px;
-    gap: 10px;
-  }
-  .recognized-item-card {
+  .recognized-item-pill {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
-    padding: 10px 8px;
+    padding: 12px 14px;
   }
-  .recognized-btn-group {
+  .recognized-item-pill .item-buttons {
     justify-content: flex-end;
   }
 }
