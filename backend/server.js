@@ -4,7 +4,8 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+// Removed: const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js'); // Added for Supabase
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
 const jwt = require('jsonwebtoken');
@@ -50,54 +51,25 @@ const NUTRIENT_IDS = {
   FIBER: 1079, // Fiber, total dietary
 };
 
+// --- Supabase Client Setup ---
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY; // Use service role key for backend
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+if (!supabaseUrl || !supabaseKey) {
+  console.error("FATAL ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be defined in .env file.");
+  process.exit(1);
+}
 
-const initializeDb = async () => {
-  const client = await pool.connect();
-  try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(255) UNIQUE NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL
-      );
-    `);
-    console.log("Users table ready.");
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS user_goals (
-        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        calories INTEGER,
-        protein INTEGER
-      );
-    `);
-    console.log("User goals table ready.");
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS user_inventory (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        item_name VARCHAR(255) NOT NULL,
-        item_quantity VARCHAR(255),
-        quantity NUMERIC,
-        unit VARCHAR(20)
-      );
-    `);
-    console.log("User inventory table ready.");
-  } catch (err) {
-    console.error("Error initializing database schema:", err);
-    process.exit(1);
-  } finally {
-    client.release();
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    // Optional: configure auth settings if needed, but service key bypasses RLS
+    // autoRefreshToken: false,
+    // persistSession: false
   }
-};
+});
+console.log("Supabase client initialized.");
 
-initializeDb().catch(err => console.error("Database initialization failed:", err));
+// Removed initializeDb function and call - Schema managed in Supabase dashboard
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 if (!GOOGLE_API_KEY) {
@@ -470,16 +442,26 @@ app.post('/api/register', async (req, res) => {
   }
   try {
     const password_hash = await bcrypt.hash(password, saltRounds);
-    const result = await pool.query(
-      `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id`,
-      [username, email, password_hash]
-    );
-    res.status(201).json({ success: true, userId: result.rows[0].id });
-  } catch (error) {
-    if (error.code === '23505') {
-      return res.status(409).json({ success: false, message: 'Username or email already exists.' });
+    // Supabase insert
+    const { data, error } = await supabase
+      .from('users')
+      .insert({ username, email, password_hash })
+      .select('id')
+      .single(); // Expecting a single row back
+
+    if (error) {
+      // Check for Supabase unique constraint violation (code 23505)
+      if (error.code === '23505') {
+        return res.status(409).json({ success: false, message: 'Username or email already exists.' });
+      }
+      console.error('Supabase registration error:', error);
+      return res.status(500).json({ success: false, message: 'Database error during registration.' });
     }
-    console.error(error);
+
+    res.status(201).json({ success: true, userId: data.id });
+  } catch (error) {
+    // Catch hashing errors or unexpected issues
+    console.error('General registration error:', error);
     res.status(500).json({ success: false, message: 'Server error during registration.' });
   }
 });
@@ -490,28 +472,55 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Email and password are required.' });
   }
   try {
-    const result = await pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
-    const user = result.rows[0];
-    if (!user) return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    // Supabase select
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single(); // Expecting one user or null
+
+    if (error && error.code !== 'PGRST116') { // PGRST116: Row not found (expected if email doesn't exist)
+        console.error('Supabase login select error:', error);
+        return res.status(500).json({ success: false, message: 'Database error during login.' });
+    }
+    if (!user) {
+        return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
 
     const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    if (!match) {
+        return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
 
+    // Note: Supabase typically uses its own auth, but we keep JWT for now
     const token = jwt.sign({ userId: user.id, username: user.username, email: user.email }, jwtSecret, { expiresIn: '1h' });
     res.json({ success: true, username: user.username, token });
   } catch (error) {
-    console.error(error);
+    // Catch hashing errors or unexpected issues
+    console.error('General login error:', error);
     res.status(500).json({ success: false, message: 'Server error during login.' });
   }
 });
 
 app.get('/api/user/goals', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(`SELECT calories, protein FROM user_goals WHERE user_id = $1`, [req.user.userId]);
-    res.json({ success: true, goals: result.rows[0] || null });
+    // Supabase select
+    const { data, error } = await supabase
+      .from('user_goals')
+      .select('calories, protein')
+      .eq('user_id', req.user.userId)
+      .maybeSingle(); // Returns data object or null if not found
+
+    if (error) {
+      console.error('Supabase fetch goals error:', error);
+      return res.status(500).json({ success: false, message: 'Database error fetching goals.' });
+    }
+
+    res.json({ success: true, goals: data }); // data is null if no goals found
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Database error fetching goals.' });
+    // Catch unexpected errors
+    console.error('General fetch goals error:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching goals.' });
   }
 });
 
@@ -521,35 +530,51 @@ app.post('/api/user/goals', authenticateToken, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Calories and protein are required.' });
   }
   try {
-    await pool.query(`
-      INSERT INTO user_goals (user_id, calories, protein)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (user_id) DO UPDATE SET calories = EXCLUDED.calories, protein = EXCLUDED.protein
-    `, [req.user.userId, calories, protein]);
+    // Supabase upsert (insert or update)
+    const { error } = await supabase
+      .from('user_goals')
+      .upsert({ user_id: req.user.userId, calories: calories, protein: protein }); // Supabase handles conflict automatically based on primary key (user_id)
+
+    if (error) {
+      console.error('Supabase save goals error:', error);
+      return res.status(500).json({ success: false, message: 'Database error saving goals.' });
+    }
+
     res.json({ success: true, message: 'Goals saved.' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Database error saving goals.' });
+    // Catch unexpected errors
+    console.error('General save goals error:', err);
+    res.status(500).json({ success: false, message: 'Server error saving goals.' });
   }
 });
 
 app.get('/api/user/inventory', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT id, item_name, item_quantity, quantity, unit FROM user_inventory WHERE user_id = $1 ORDER BY item_name`,
-      [req.user.userId]
-    );
-    const inventory = result.rows.map(row => ({
+    // Supabase select
+    const { data, error } = await supabase
+      .from('user_inventory')
+      .select('id, item_name, item_quantity, quantity, unit')
+      .eq('user_id', req.user.userId)
+      .order('item_name');
+
+    if (error) {
+      console.error('Supabase fetch inventory error:', error);
+      return res.status(500).json({ success: false, message: 'Database error fetching inventory.' });
+    }
+
+    // Map to the expected frontend format (if needed, though Supabase returns similar structure)
+    const inventory = data.map(row => ({
       id: row.id,
       name: row.item_name,
-      item_quantity: row.item_quantity,
-      quantity: row.quantity,
-      unit: row.unit
+      item_quantity: row.item_quantity, // Keep original string for display?
+      quantity: row.quantity, // Keep parsed numeric quantity
+      unit: row.unit // Keep parsed unit
     }));
     res.json({ success: true, inventory });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Database error fetching inventory.' });
+    // Catch unexpected errors
+    console.error('General fetch inventory error:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching inventory.' });
   }
 });
 
@@ -579,26 +604,39 @@ app.post('/api/user/inventory', authenticateToken, async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `INSERT INTO user_inventory (user_id, item_name, item_quantity, quantity, unit)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, item_name, item_quantity, quantity, unit`,
-      [req.user.userId, itemName, itemQuantity || null, parsedQuantity, normalizedUnit]
-    );
-    const item = result.rows[0];
+    // Supabase insert
+    const { data, error } = await supabase
+      .from('user_inventory')
+      .insert({
+        user_id: req.user.userId,
+        item_name: itemName,
+        item_quantity: itemQuantity || null, // Store original string if provided
+        quantity: parsedQuantity, // Store parsed numeric quantity
+        unit: normalizedUnit // Store parsed unit
+      })
+      .select('id, item_name, item_quantity, quantity, unit') // Select the fields to return
+      .single(); // Expecting one row back
+
+    if (error) {
+      console.error('Supabase add inventory error:', error);
+      return res.status(500).json({ success: false, message: 'Database error adding item.' });
+    }
+
+    // Map to expected frontend format (already matches)
     res.status(201).json({
       success: true,
       item: {
-        id: item.id,
-        name: item.item_name,
-        item_quantity: item.item_quantity,
-        quantity: item.quantity,
-        unit: item.unit
+        id: data.id,
+        name: data.item_name,
+        item_quantity: data.item_quantity,
+        quantity: data.quantity,
+        unit: data.unit
       }
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Database error adding item.' });
+    // Catch unexpected errors
+    console.error('General add inventory error:', err);
+    res.status(500).json({ success: false, message: 'Server error adding item.' });
   }
 });
 
@@ -606,15 +644,25 @@ app.delete('/api/user/inventory/:id', authenticateToken, async (req, res) => {
   const itemId = parseInt(req.params.id);
   if (!itemId) return res.status(400).json({ success: false, message: 'Valid item ID required.' });
   try {
-    const result = await pool.query(
-      `DELETE FROM user_inventory WHERE id = $1 AND user_id = $2`,
-      [itemId, req.user.userId]
-    );
-    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Item not found.' });
+    // Supabase delete
+    const { error, count } = await supabase
+      .from('user_inventory')
+      .delete()
+      .match({ id: itemId, user_id: req.user.userId }); // Match both id and user_id for security
+
+    if (error) {
+      console.error('Supabase delete inventory error:', error);
+      return res.status(500).json({ success: false, message: 'Database error deleting item.' });
+    }
+    // Supabase delete doesn't return count directly in v2, check error instead or perform a select first if count is critical
+    // Assuming success if no error occurred for the matched criteria
+    // if (count === 0) return res.status(404).json({ success: false, message: 'Item not found or not owned by user.' });
+
     res.json({ success: true, message: 'Item deleted.' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Database error deleting item.' });
+    // Catch unexpected errors
+    console.error('General delete inventory error:', err);
+    res.status(500).json({ success: false, message: 'Server error deleting item.' });
   }
 });
 
@@ -645,31 +693,46 @@ app.put('/api/user/inventory/:id', authenticateToken, async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `UPDATE user_inventory
-       SET item_name = $1,
-           item_quantity = $2,
-           quantity = $3,
-           unit = $4
-       WHERE id = $5 AND user_id = $6
-       RETURNING id, item_name, item_quantity, quantity, unit`,
-      [itemName, itemQuantity || null, parsedQuantity, normalizedUnit, itemId, req.user.userId]
-    );
-    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Item not found.' });
-    const item = result.rows[0];
+    // Supabase update
+    const { data, error } = await supabase
+      .from('user_inventory')
+      .update({
+        item_name: itemName,
+        item_quantity: itemQuantity || null,
+        quantity: parsedQuantity,
+        unit: normalizedUnit
+      })
+      .match({ id: itemId, user_id: req.user.userId }) // Ensure user owns the item
+      .select('id, item_name, item_quantity, quantity, unit') // Select fields to return
+      .single(); // Expect one row updated
+
+    if (error) {
+        // Handle case where item not found or doesn't belong to user (e.g., error.code might indicate this)
+        if (error.code === 'PGRST116') { // Row not found
+             return res.status(404).json({ success: false, message: 'Item not found or not owned by user.' });
+        }
+        console.error('Supabase update inventory error:', error);
+        return res.status(500).json({ success: false, message: 'Database error updating item.' });
+    }
+    if (!data) { // Should be redundant if error handling is correct, but good practice
+        return res.status(404).json({ success: false, message: 'Item not found after update attempt.' });
+    }
+
+    // Map to expected frontend format (already matches)
     res.json({
       success: true,
       item: {
-        id: item.id,
-        name: item.item_name,
-        item_quantity: item.item_quantity,
-        quantity: item.quantity,
-        unit: item.unit
+        id: data.id,
+        name: data.item_name,
+        item_quantity: data.item_quantity,
+        quantity: data.quantity,
+        unit: data.unit
       }
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Database error updating item.' });
+    // Catch unexpected errors
+    console.error('General update inventory error:', err);
+    res.status(500).json({ success: false, message: 'Server error updating item.' });
   }
 });
 
@@ -695,14 +758,19 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
   // --- Meal Generation Logic (mode === 'meal') ---
   if (mode === 'meal') {
     try {
-      // 1. Fetch User Inventory from DB
-      const inventoryResult = await pool.query(
-        `SELECT id, item_name, item_quantity FROM user_inventory WHERE user_id = $1 ORDER BY item_name`,
-        [userId]
-      );
-      const rawInventory = inventoryResult.rows;
+      // 1. Fetch User Inventory from Supabase
+      const { data: rawInventory, error: inventoryError } = await supabase
+        .from('user_inventory')
+        .select('id, item_name, item_quantity, quantity, unit') // Fetch all relevant fields
+        .eq('user_id', userId)
+        .order('item_name');
 
-      if (rawInventory.length === 0) {
+      if (inventoryError) {
+        console.error('Supabase fetch inventory for meal plan error:', inventoryError);
+        return res.status(500).json({ success: false, message: 'Database error fetching inventory for meal plan.' });
+      }
+
+      if (!rawInventory || rawInventory.length === 0) {
         return res.json({ success: false, message: "Your inventory is empty. Please add some items." });
       }
 
@@ -1027,14 +1095,21 @@ app.post('/api/generate-plan', authenticateToken, async (req, res) => {
 
   // --- Daily Plan Generation Logic (mode === 'daily') ---
   } else if (mode === 'daily') {
-    // Fetch inventory string for the prompt (as it was before)
-     const inventoryResult = await pool.query(
-        `SELECT item_name, item_quantity FROM user_inventory WHERE user_id = $1 ORDER BY item_name`,
-        [userId]
-      );
-     const inventory_list_for_prompt = inventoryResult.rows.map(row => ({ name: row.item_name, quantity: row.item_quantity }));
-     const inventoryString = inventory_list_for_prompt.map(item => `${item.name}${item.quantity ? ` (${item.quantity})` : ''}`).join(', ') || 'no items provided';
-     const dailyGoalString = `User's approximate daily goals: ${goals.calories || 'Not specified'} kcal, ${goals.protein || 'Not specified'}g protein.`; // Assuming goals still passed for daily
+    // Fetch inventory string for the prompt using Supabase
+    const { data: dailyInventory, error: dailyInventoryError } = await supabase
+        .from('user_inventory')
+        .select('item_name, item_quantity') // Only need these for the string prompt
+        .eq('user_id', userId)
+        .order('item_name');
+
+    if (dailyInventoryError) {
+        console.error('Supabase fetch inventory for daily plan error:', dailyInventoryError);
+        return res.status(500).json({ success: false, message: 'Database error fetching inventory for daily plan.' });
+    }
+
+    const inventory_list_for_prompt = dailyInventory || []; // Use fetched data or empty array
+    const inventoryString = inventory_list_for_prompt.map(item => `${item.item_name}${item.item_quantity ? ` (${item.item_quantity})` : ''}`).join(', ') || 'no items provided';
+    const dailyGoalString = `User's approximate daily goals: ${goals.calories || 'Not specified'} kcal, ${goals.protein || 'Not specified'}g protein.`; // Assuming goals still passed for daily
 
     // NOTE: Daily plan generation still uses the old LLM approach.
     // This part is NOT updated by the new strict meal generation logic.
