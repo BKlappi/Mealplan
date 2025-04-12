@@ -472,14 +472,51 @@ app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
 
     await foodImage.mv(filePath);
 
-    // Respond with success and file info
+    // --- Food Recognition Model Integration ---
+    let recognizedItems = [];
+    let modelResponseText = '';
+    try {
+      const imageBuffer = fs.readFileSync(filePath);
+      const imagePart = fileToGenerativePart(imageBuffer, foodImage.mimetype);
+      const prompt = `Identify ONLY edible food items in the image. Return ONLY a JSON array of strings, e.g., ["Apples", "Milk Carton"]. If none, return [].`;
+
+      console.log('[Food Recognition] Invoking model...');
+      const result = await foodRecognitionModel.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }, imagePart] }],
+        generationConfig: { temperature: 0.7, topP: 0.9, topK: 20, maxOutputTokens: 1024 },
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        ]
+      });
+
+      modelResponseText = result.response.candidates[0].content.parts[0].text.trim();
+      console.log('[Food Recognition] Raw model response:', modelResponseText);
+
+      try {
+        recognizedItems = JSON.parse(modelResponseText.replace(/^```json\s*|```$/g, '').trim());
+        if (!Array.isArray(recognizedItems)) recognizedItems = [];
+      } catch (parseErr) {
+        console.error('[Food Recognition] Error parsing model response as JSON:', parseErr);
+        recognizedItems = [];
+      }
+    } catch (modelErr) {
+      console.error('[Food Recognition] Model invocation failed:', modelErr);
+      recognizedItems = [];
+    }
+
+    // Respond with success, file info, and recognized items
     res.json({
       success: true,
-      message: 'Image uploaded successfully.',
+      message: recognizedItems.length > 0
+        ? 'Image uploaded and scanned successfully.'
+        : 'Image uploaded, but no food items were recognized.',
       fileName,
       filePath: `/images/${fileName}`,
       mimetype: foodImage.mimetype,
-      size: foodImage.size
+      recognizedItems
     });
   } catch (err) {
     // Log full error for debugging
