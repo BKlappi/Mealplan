@@ -1260,14 +1260,17 @@ function fileToGenerativePart(buffer, mimeType) {
 }
 
 app.post('/api/user/inventory/image', authenticateToken, async (req, res) => {
-  if (!req.files || !req.files.foodImage) {
-    return res.status(400).json({ success: false, message: 'No image uploaded.' });
-  }
-  const foodImageFile = req.files.foodImage;
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  if (!allowedMimeTypes.includes(foodImageFile.mimetype)) {
-    return res.status(400).json({ success: false, message: 'Invalid file type.' });
-  }
+  try {
+    if (!req.files || !req.files.foodImage) {
+      console.error('[400] No image uploaded. req.files:', req.files, 'Headers:', req.headers);
+      return res.status(400).json({ success: false, message: 'No image uploaded. Debug: req.files or foodImage missing.' });
+    }
+    const foodImageFile = req.files.foodImage;
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedMimeTypes.includes(foodImageFile.mimetype)) {
+      console.error('[400] Invalid file type:', foodImageFile.mimetype, 'File info:', foodImageFile);
+      return res.status(400).json({ success: false, message: 'Invalid file type. Debug: ' + foodImageFile.mimetype });
+    }
 
   try {
     const imagePart = fileToGenerativePart(foodImageFile.data, foodImageFile.mimetype);
@@ -1295,6 +1298,10 @@ If none, return [].
       generationConfig,
       safetySettings,
     });
+  } catch (err) {
+    console.error('[500] Error during image processing:', err);
+    return res.status(500).json({ success: false, message: 'Server error during image processing.', error: err && err.message ? err.message : err });
+  }
 
     const responseText = result.response.candidates[0].content.parts[0].text.trim();
     const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
