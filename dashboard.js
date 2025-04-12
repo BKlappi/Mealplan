@@ -747,41 +747,90 @@ function setupImageUploadListener() {
 // --- Function to display recognized items and allow adding ---
 function displayRecognizedItems(items) {
     const listEl = document.getElementById('recognized-items-list');
-    const nameInput = document.getElementById('item-name'); // Target inventory form input
-    listEl.innerHTML = ''; // Clear previous
+    const nameInput = document.getElementById('item-name');
+    const quantityInput = document.getElementById('item-quantity');
+    listEl.innerHTML = '';
 
     if (!items || items.length === 0) {
-        listEl.innerHTML = '<li>No items recognized.</li>';
+        listEl.innerHTML = '<li class="recognized-empty">No items recognized.</li>';
         return;
     }
 
-    items.forEach(itemName => {
-        const li = document.createElement('li');
-        li.className = 'recognized-item'; // Add class for styling
+    // Use a modern card/list-group container
+    const container = document.createElement('div');
+    container.className = 'recognized-items-container';
 
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = itemName;
-        li.appendChild(nameSpan);
+    items.forEach((itemName, idx) => {
+        const card = document.createElement('div');
+        card.className = 'recognized-item-card';
+        card.setAttribute('data-index', idx);
 
-        const addButton = document.createElement('button');
-        addButton.textContent = 'Add';
-        addButton.classList.add('add-button', 'small-button'); // Style as needed
-        addButton.title = `Click to add '${itemName}' to your inventory form`;
-        addButton.addEventListener('click', () => {
-            // Populate the main inventory form with the clicked item name
+        // Item name
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'recognized-item-name';
+        nameDiv.textContent = itemName;
+        card.appendChild(nameDiv);
+
+        // Button group
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'recognized-btn-group';
+
+        // Add button
+        const addBtn = document.createElement('button');
+        addBtn.className = 'recognized-add-btn';
+        addBtn.title = `Add "${itemName}" to inventory`;
+        addBtn.innerHTML = '<span class="icon-add">➕</span> Add';
+        addBtn.addEventListener('click', () => {
             nameInput.value = itemName;
-            document.getElementById('item-quantity').value = ''; // Clear quantity
-            resetInventoryForm(); // Ensure form is in 'Add' mode
-            nameInput.focus(); // Focus on the name input for potential edits/quantity add
-            // Optionally remove the item from the recognized list once clicked
-            // li.remove();
-            // Or provide feedback
-            showFeedback('inventory-feedback', `'${itemName}' copied to form. Add quantity if needed and click 'Add Item'.`, 'info', 5000);
-        });
-        li.appendChild(addButton);
+            if (quantityInput) quantityInput.value = '';
+            resetInventoryForm();
+            nameInput.focus();
 
-        listEl.appendChild(li);
+            // Visual feedback: mark as added
+            card.classList.add('recognized-item-added');
+            addBtn.disabled = true;
+            rejectBtn.disabled = true;
+            addBtn.innerHTML = '<span class="icon-check">✔️</span> Added';
+            showFeedback('inventory-feedback', `"${itemName}" copied to form. Add quantity if needed and click 'Add Item'.`, 'success', 3000);
+
+            // Remove after short delay for smoothness
+            setTimeout(() => {
+                card.remove();
+                // If all cards removed, show empty message
+                if (container.children.length === 0) {
+                    listEl.innerHTML = '<li class="recognized-empty">No items recognized.</li>';
+                }
+            }, 900);
+        });
+
+        // Reject button
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'recognized-reject-btn';
+        rejectBtn.title = `Reject "${itemName}"`;
+        rejectBtn.innerHTML = '<span class="icon-reject">✖️</span> Reject';
+        rejectBtn.addEventListener('click', () => {
+            card.classList.add('recognized-item-rejected');
+            addBtn.disabled = true;
+            rejectBtn.disabled = true;
+            showFeedback('inventory-feedback', `"${itemName}" removed from recognized list.`, 'info', 2000);
+
+            // Remove after short delay for undo effect
+            setTimeout(() => {
+                card.remove();
+                if (container.children.length === 0) {
+                    listEl.innerHTML = '<li class="recognized-empty">No items recognized.</li>';
+                }
+            }, 700);
+        });
+
+        btnGroup.appendChild(addBtn);
+        btnGroup.appendChild(rejectBtn);
+        card.appendChild(btnGroup);
+
+        container.appendChild(card);
     });
+
+    listEl.appendChild(container);
 }
 
 
