@@ -240,28 +240,34 @@ ul {
 /* === Recognized Items Modern UI === */
 .recognized-items-container {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 18px;
-  margin-bottom: 10px;
-  background: var(--bg-tertiary, #23272f);
-  border-radius: 16px;
-  padding: 18px 14px;
-  box-shadow: 0 2px 12px var(--shadow-color-dark, rgba(0,0,0,0.12));
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  background: #23272f;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
 }
 
 .recognized-item-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg-secondary, #181b20);
-  border-radius: 12px;
-  box-shadow: 0 1px 6px var(--shadow-color-dark, rgba(0,0,0,0.10));
-  padding: 14px 18px;
+  background: #2c313a;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  padding: 0.75rem 1rem;
+  min-width: 220px;
+  margin: 0.25rem 0;
   transition: box-shadow 0.2s, background 0.2s, opacity 0.2s;
-  min-height: 56px;
+  min-height: 48px;
   position: relative;
-  gap: 18px;
+  gap: 1rem;
+}
+
+.recognized-item-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  background: #23272f;
 }
 
 .recognized-item-name {
@@ -321,7 +327,7 @@ ul {
 .icon-add,
 .icon-check,
 .icon-reject {
-  font-size: 1.1em;
+  font-size: 1.2em;
   vertical-align: middle;
 }
 

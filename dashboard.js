@@ -756,81 +756,70 @@ function displayRecognizedItems(items) {
         return;
     }
 
-    // Use a modern card/list-group container
-    const container = document.createElement('div');
-    container.className = 'recognized-items-container';
+    // Local copy for dynamic removal
+    let recognized = [...items];
 
-    items.forEach((itemName, idx) => {
-        const card = document.createElement('div');
-        card.className = 'recognized-item-card';
-        card.setAttribute('data-index', idx);
+    function render() {
+        listEl.innerHTML = '';
+        if (!recognized.length) {
+            listEl.innerHTML = '<li class="recognized-empty">No items recognized.</li>';
+            return;
+        }
+        const container = document.createElement('div');
+        container.className = 'recognized-items-container';
 
-        // Item name
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'recognized-item-name';
-        nameDiv.textContent = itemName;
-        card.appendChild(nameDiv);
+        recognized.forEach((itemName, idx) => {
+            const card = document.createElement('div');
+            card.className = 'recognized-item-card';
+            card.setAttribute('data-index', idx);
 
-        // Button group
-        const btnGroup = document.createElement('div');
-        btnGroup.className = 'recognized-btn-group';
+            // Item name
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'recognized-item-name';
+            nameDiv.textContent = itemName;
+            card.appendChild(nameDiv);
 
-        // Add button
-        const addBtn = document.createElement('button');
-        addBtn.className = 'recognized-add-btn';
-        addBtn.title = `Add "${itemName}" to inventory`;
-        addBtn.innerHTML = '<span class="icon-add">➕</span> Add';
-        addBtn.addEventListener('click', () => {
-            nameInput.value = itemName;
-            if (quantityInput) quantityInput.value = '';
-            resetInventoryForm();
-            nameInput.focus();
+            // Button group
+            const btnGroup = document.createElement('div');
+            btnGroup.className = 'recognized-btn-group';
 
-            // Visual feedback: mark as added
-            card.classList.add('recognized-item-added');
-            addBtn.disabled = true;
-            rejectBtn.disabled = true;
-            addBtn.innerHTML = '<span class="icon-check">✔️</span> Added';
-            showFeedback('inventory-feedback', `"${itemName}" copied to form. Add quantity if needed and click 'Add Item'.`, 'success', 3000);
+            // Add button
+            const addBtn = document.createElement('button');
+            addBtn.className = 'recognized-add-btn';
+            addBtn.title = `Add "${itemName}" to inventory`;
+            addBtn.setAttribute('aria-label', `Add ${itemName} to inventory`);
+            addBtn.innerHTML = '<span class="icon-add">✓</span> Add';
+            addBtn.onclick = () => {
+                nameInput.value = itemName;
+                if (quantityInput) quantityInput.value = '';
+                nameInput.focus();
+                recognized.splice(idx, 1);
+                render();
+                showFeedback('inventory-feedback', `"${itemName}" copied to form. Add quantity and click 'Add Item'.`, 'info', 4000);
+            };
 
-            // Remove after short delay for smoothness
-            setTimeout(() => {
-                card.remove();
-                // If all cards removed, show empty message
-                if (container.children.length === 0) {
-                    listEl.innerHTML = '<li class="recognized-empty">No items recognized.</li>';
-                }
-            }, 900);
+            // Reject button
+            const rejectBtn = document.createElement('button');
+            rejectBtn.className = 'recognized-reject-btn';
+            rejectBtn.title = `Reject "${itemName}"`;
+            rejectBtn.setAttribute('aria-label', `Reject ${itemName}`);
+            rejectBtn.innerHTML = '<span class="icon-reject">✗</span> Reject';
+            rejectBtn.onclick = () => {
+                recognized.splice(idx, 1);
+                render();
+                showFeedback('inventory-feedback', `"${itemName}" removed from recognized items.`, 'info', 3000);
+            };
+
+            btnGroup.appendChild(addBtn);
+            btnGroup.appendChild(rejectBtn);
+            card.appendChild(btnGroup);
+            container.appendChild(card);
         });
 
-        // Reject button
-        const rejectBtn = document.createElement('button');
-        rejectBtn.className = 'recognized-reject-btn';
-        rejectBtn.title = `Reject "${itemName}"`;
-        rejectBtn.innerHTML = '<span class="icon-reject">✖️</span> Reject';
-        rejectBtn.addEventListener('click', () => {
-            card.classList.add('recognized-item-rejected');
-            addBtn.disabled = true;
-            rejectBtn.disabled = true;
-            showFeedback('inventory-feedback', `"${itemName}" removed from recognized list.`, 'info', 2000);
+        listEl.appendChild(container);
+    }
 
-            // Remove after short delay for undo effect
-            setTimeout(() => {
-                card.remove();
-                if (container.children.length === 0) {
-                    listEl.innerHTML = '<li class="recognized-empty">No items recognized.</li>';
-                }
-            }, 700);
-        });
-
-        btnGroup.appendChild(addBtn);
-        btnGroup.appendChild(rejectBtn);
-        card.appendChild(btnGroup);
-
-        container.appendChild(card);
-    });
-
-    listEl.appendChild(container);
+    render();
 }
 
 
