@@ -1265,21 +1265,7 @@ function fileToGenerativePart(buffer, mimeType) {
 }
 
 /* (route moved above JSON body parsers) */
-    const responseText = result.response.candidates[0].content.parts[0].text.trim();
-    const cleanedText = responseText.replace(/^```json\s*|```$/g, '').trim();
-    let recognizedItems;
-    try {
-      recognizedItems = JSON.parse(cleanedText);
-      if (!Array.isArray(recognizedItems)) throw new Error();
-    } catch {
-      recognizedItems = [];
-    }
-    res.json({ success: true, recognizedItems });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Error recognizing food items.' });
-  }
-});
+/* (removed stray code fragment causing SyntaxError) */
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
