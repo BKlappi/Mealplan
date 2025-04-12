@@ -702,13 +702,8 @@ function setupImageUploadListener() {
             // Use fetchWithAuth for authenticated endpoint
             const response = await fetchWithAuth(`${API_BASE_URL}/user/inventory/image`, {
                 method: 'POST',
-                body: formData,
-                // fetchWithAuth handles Authorization header
-                // Content-Type is set automatically for FormData, but needs to be undefined here
-                // so the browser sets the correct boundary
-                headers: {
-                    'Content-Type': undefined
-                }
+                body: formData
+                // Do NOT set headers here! Browser will set Content-Type for FormData.
             });
 
             // Check response status
