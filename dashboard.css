@@ -280,16 +280,16 @@ ul {
   flex: 1 1 auto;
   min-width: 0;
   letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: unset;
   margin-right: 16px;
   padding-left: 2px;
   line-height: 1.4;
   display: flex;
   align-items: center;
   text-shadow: none;
-  word-break: normal;
 }
 
 /* Buttons use .item-buttons class from JS */
