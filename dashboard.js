@@ -304,15 +304,15 @@ async function handleInventorySubmit(event) { // Make async
     console.log("HANDLER: handleInventorySubmit (saving to backend)");
     event.preventDefault();
     const nameIn = document.getElementById('item-name');
-    const quantIn = document.getElementById('item-quantity');
+    // const quantIn = document.getElementById('item-quantity'); // No longer used
     const structuredQuantityIn = document.getElementById('structured-quantity');
     const structuredUnitIn = document.getElementById('structured-unit');
     const formEl = document.getElementById('add-inventory-form');
     hideFeedback('inventory-feedback');
-    if (!nameIn || !quantIn || !structuredQuantityIn || !structuredUnitIn || !formEl) return;
+    if (!nameIn || !structuredQuantityIn || !structuredUnitIn || !formEl) return;
 
     const name = nameIn.value.trim();
-    const itemQuantity = quantIn.value.trim(); // free text, optional
+    const itemQuantity = ""; // No longer used, keep for backend compatibility
     const quantity = structuredQuantityIn.value.trim(); // number input, optional
     const unit = structuredUnitIn.value; // dropdown, optional
 
