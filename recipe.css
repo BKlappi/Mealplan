@@ -1,27 +1,42 @@
+/* Apply theme variables and sporty style */
 .recipe-container {
-    width: 80%;
-    margin: 20px auto;
-    padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    background-color: #f9f9f9;
+    width: 80%; /* Keep width or adjust as needed */
+    max-width: 900px; /* Add max-width for larger screens */
+    margin: 60px auto; /* More vertical margin */
+    padding: 40px 50px; /* More padding */
+    border: 1px solid var(--border-primary);
+    border-radius: 0; /* Remove border-radius */
+    background-color: var(--bg-secondary);
+    box-shadow: none; /* Remove shadow for flat design */
 }
 
 #recipe-name {
-    color: #333;
+    /* Should inherit h1/h2 styles from style.css if using those tags */
+    /* Add specific style just in case */
+    font-family: 'Oswald', sans-serif;
+    font-size: 2.5em; /* Example size */
+    color: var(--accent-primary); /* Use accent color for title */
+    margin-bottom: 25px;
+    text-align: center; /* Center title */
+    border-bottom: 1px solid var(--border-secondary); /* Add separator */
+    padding-bottom: 15px;
 }
 
 #recipe-nutrition {
-    color: #666;
-    margin-bottom: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 25px; /* Increase spacing */
+    text-align: center; /* Center nutrition info */
+    font-size: 1.1em;
 }
 
 #recipe-steps {
     list-style: decimal;
-    padding-left: 20px;
+    padding-left: 25px; /* Adjust padding */
+    margin-top: 20px; /* Add margin top */
 }
 
 #recipe-steps li {
-    margin-bottom: 10px;
-    color: #444;
+    margin-bottom: 15px; /* Increase spacing */
+    color: var(--text-primary);
+    line-height: 1.7; /* Match body line-height */
 }

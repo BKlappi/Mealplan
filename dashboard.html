@@ -59,16 +59,14 @@
                             <input type="text" id="item-name" name="itemName" required placeholder="e.g., Chicken Breast">
                         </div>
                         <div class="form-group">
-                            <label for="item-quantity">Quantity (optional, free text):</label>
-                            <input type="text" id="item-quantity" name="itemQuantity" placeholder="e.g., 500g or 1 pack">
                         </div>
                         <div class="form-group">
                             <label for="structured-quantity">Exact Quantity:</label>
-                            <input type="number" id="structured-quantity" name="quantity" min="0" step="any" placeholder="e.g., 200">
+                            <input type="number" id="structured-quantity" name="quantity" min="0" step="any" placeholder="e.g., 200" required>
                         </div>
                         <div class="form-group">
                             <label for="structured-unit">Unit:</label>
-                            <select id="structured-unit" name="unit">
+                            <select id="structured-unit" name="unit" required>
                                 <option value="">Select unit</option>
                                 <option value="g">grams (g)</option>
                                 <option value="kg">kilograms (kg)</option>

@@ -22,10 +22,10 @@
 .register-page main {
   max-width: 450px; /* Limit the width of the form container */
   background-color: var(--bg-secondary); /* Card background color */
-  padding: 40px; /* Inner spacing */
-  border-radius: 8px; /* Rounded corners */
-  margin: 50px auto; /* Center the card vertically (approx) and horizontally */
-  box-shadow: 0 4px 12px var(--shadow-color-darker); /* Card shadow */
+  padding: 50px 40px; /* More padding */
+  border-radius: 0; /* Sharper corners */
+  margin: 70px auto; /* More vertical margin */
+  box-shadow: none; /* Remove shadow for flat design */
   border: 1px solid var(--border-primary); /* Card border */
   transition: background-color 0.3s ease, border-color 0.3s ease; /* Smooth theme transitions */
 }
@@ -34,9 +34,12 @@
 .register-page h1 {
   text-align: center; /* Center the title */
   margin-bottom: 35px; /* Space below the title */
-  font-size: 1.8em; /* Title size */
+  /* font-size: 1.8em; */ /* Inherit from style.css h1/h2/h3 */
   color: var(--text-primary); /* Title color */
-  font-weight: 500; /* Title font weight */
+  /* font-weight: 500; */ /* Inherit from style.css */
+  font-family: 'Oswald', sans-serif; /* Ensure Oswald is used */
+  font-size: 2.2em; /* Match h2 size from style.css */
+  font-weight: 700; /* Match heading weight */
 }
 
 /* Styles for the form element itself */
@@ -68,7 +71,7 @@
 .register-page .form-group input[type="email"],
 .register-page .form-group input[type="password"] {
    padding: 12px 15px;
-   border-radius: 5px;
+   border-radius: 3px; /* Sharper corners */
    border: 1px solid var(--input-border);
    background-color: var(--input-bg);
    color: var(--text-primary);
@@ -89,9 +92,10 @@
    /* Base button styles (.submit-button) are inherited from style.css */
    width: 100%; /* Make button full width */
    margin-top: 15px; /* Space above the button */
-   padding: 12px 15px; /* Button padding */
-   font-size: 1.05em; /* Button text size */
-   /* Inherits colors, hover effects etc. from .submit-button rule in style.css */
+   /* Inherit padding, font-size etc from .submit-button in style.css */
+   /* Remove overrides if base style is sufficient */
+   /* padding: 12px 15px; */
+   /* font-size: 1.05em; */
 }
 
 /* --- Bottom Link Styling --- */
@@ -110,7 +114,4 @@
   font-weight: 500;
 }
 
-.register-page .login-link a:hover {
-  /* Hover effects inherited from base 'a:hover' in style.css (like color change) */
-  /* text-decoration: underline; */ /* Keep underline off or managed by base style */
-}
+/* Hover effects inherited from base 'a:hover' in style.css */

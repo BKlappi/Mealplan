@@ -14,10 +14,10 @@
 .login-page main {
    max-width: 450px;
    background-color: var(--bg-secondary); /* Use secondary background for card */
-   padding: 40px;
-   border-radius: 8px;
-   margin: 50px auto;
-   box-shadow: 0 4px 12px var(--shadow-color-darker); /* Use variable */
+   padding: 50px 40px; /* More padding */
+   border-radius: 0; /* Sharper corners */
+   margin: 70px auto; /* More vertical margin */
+   box-shadow: none; /* Remove shadow for flat design */
    border: 1px solid var(--border-primary); /* Use variable */
    transition: background-color 0.3s ease, border-color 0.3s ease; /* Add transition */
 }
@@ -25,9 +25,12 @@
 .login-page h1 {
    text-align: center;
    margin-bottom: 35px;
-   font-size: 1.8em;
+   /* font-size: 1.8em; */ /* Inherit from style.css h1/h2/h3 */
    color: var(--text-primary); /* Use variable */
-   font-weight: 500;
+   /* font-weight: 500; */ /* Inherit from style.css */
+   font-family: 'Oswald', sans-serif; /* Ensure Oswald is used */
+   font-size: 2.2em; /* Match h2 size from style.css */
+   font-weight: 700; /* Match heading weight */
 }
 
 .login-form {
@@ -55,7 +58,7 @@
 .form-group input[type="text"],
 .form-group input[type="number"] {
    padding: 12px 15px;
-   border-radius: 5px;
+   border-radius: 3px; /* Sharper corners */
    border: 1px solid var(--input-border); /* Use variable */
    background-color: var(--input-bg); /* Use variable */
    color: var(--text-primary); /* Use variable */
@@ -76,12 +79,14 @@
 .submit-button:active { ... }
 */
 
-/* Ensure submit button takes full width */
+/* Ensure submit button takes full width and uses base styles */
 .login-form .submit-button {
     width: 100%;
     margin-top: 15px; /* Add some space above button */
-    padding: 12px 15px; /* Slightly larger padding for main action */
-    font-size: 1.05em;
+    /* Inherit padding, font-size etc from .submit-button in style.css */
+    /* Remove overrides if base style is sufficient */
+    /* padding: 12px 15px; */
+    /* font-size: 1.05em; */
 }
 
 
@@ -98,6 +103,4 @@
    font-weight: 500;
 }
 
-.register-link a:hover {
-   /* text-decoration: underline; */ /* Remove underline - handled by base 'a:hover' */
-}
+/* Hover state is handled by base 'a:hover' in style.css */
