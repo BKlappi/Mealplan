@@ -356,7 +356,9 @@ async function handleInventorySubmit(event) { // Make async
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(`Failed to ${method === 'POST' ? 'add' : 'update'} item: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+            // Always show backend error message if present
+            showFeedback('inventory-feedback', errorData.message || `Failed to ${method === 'POST' ? 'add' : 'update'} item: ${response.status} ${response.statusText}`, 'error');
+            return;
         }
 
         const resultData = await response.json();
@@ -374,13 +376,18 @@ async function handleInventorySubmit(event) { // Make async
             resetInventoryForm(); // Clear the form
             showFeedback('inventory-feedback', successMessage, 'success');
         } else {
-            // Handle cases where the backend reports success: false or item is missing
+            // Always show backend error message if present
             showFeedback('inventory-feedback', resultData.message || `Failed to ${method === 'POST' ? 'add' : 'update'} item.`, 'error');
         }
     } catch (error) {
         // Handle network errors or errors from fetchWithAuth
         console.error(`Error ${method === 'POST' ? 'adding' : 'updating'} inventory item:`, error);
-        showFeedback('inventory-feedback', `Error: ${error.message}`, 'error');
+        // Try to show backend error message if available
+        if (error.response && error.response.data && error.response.data.message) {
+            showFeedback('inventory-feedback', error.response.data.message, 'error');
+        } else {
+            showFeedback('inventory-feedback', `Error: ${error.message}`, 'error');
+        }
     }
 }
 function resetInventoryForm() {
