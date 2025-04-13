@@ -298,8 +298,27 @@ async function handleSaveGoals(event) { // Make async
      }
  }
 function handleStartEditItem(event) {
-     console.log("HANDLER: handleStartEditItem"); const index=parseInt(event.target.dataset.index); const item=currentInventory[index]; const nameIn=document.getElementById('item-name'); const quantIn=document.getElementById('item-quantity'); const submitBtn=document.getElementById('add-update-inventory-btn'); if(isNaN(index)||!item||!nameIn||!quantIn||!submitBtn){console.error("Start Edit Err"); return;} editingInventoryIndex=index; nameIn.value=item.name; quantIn.value=item.quantity||''; submitBtn.textContent='Update Item'; submitBtn.classList.add('update-mode'); nameIn.focus(); hideFeedback('inventory-feedback'); console.log("--> Edit form populated.");
- }
+    console.log("HANDLER: handleStartEditItem");
+    const index = parseInt(event.target.dataset.index);
+    const item = currentInventory[index];
+    const nameIn = document.getElementById('item-name');
+    const structuredQuantityIn = document.getElementById('structured-quantity');
+    const structuredUnitIn = document.getElementById('structured-unit');
+    const submitBtn = document.getElementById('add-update-inventory-btn');
+    if (isNaN(index) || !item || !nameIn || !structuredQuantityIn || !structuredUnitIn || !submitBtn) {
+        console.error("Start Edit Err");
+        return;
+    }
+    editingInventoryIndex = index;
+    nameIn.value = item.name;
+    structuredQuantityIn.value = item.quantity || '';
+    structuredUnitIn.value = item.unit || '';
+    submitBtn.textContent = 'Update Item';
+    submitBtn.classList.add('update-mode');
+    nameIn.focus();
+    hideFeedback('inventory-feedback');
+    console.log("--> Edit form populated.");
+}
 async function handleInventorySubmit(event) { // Make async
     console.log("HANDLER: handleInventorySubmit (saving to backend)");
     event.preventDefault();
